@@ -3,87 +3,73 @@
 from __future__ import annotations
 
 import json
-import time
-from typing import TYPE_CHECKING
+from typing import Any
 
+from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext, ToolCall
-from unplug.core.taint import Tagger, TaintedText, TrustLevel
-from unplug.models import Action, Finding, ScanResult
+from unplug.core.stats import MetricsCollector
+from unplug.core.taint import TaintedText, TrustLevel
+from unplug.models import Action, Finding
+from unplug.pipelines.base import BasePipeline
+from unplug.scanners.base import BaseScanner
 
-if TYPE_CHECKING:
-    from unplug.scanners.destructive import DestructiveScanner
-    from unplug.scanners.financial import FinancialScanner
 
+class ToolCallPipeline(BasePipeline):
+    name = "toolcall"
 
-class ToolCallPipeline:
     def __init__(
         self,
-        destructive_scanner: DestructiveScanner | None = None,
-        financial_scanner: FinancialScanner | None = None,
+        destructive_scanner: BaseScanner | None = None,
+        financial_scanner: BaseScanner | None = None,
+        config: PipelineConfig | None = None,
+        metrics: MetricsCollector | None = None,
     ) -> None:
+        super().__init__(config=config, metrics=metrics)
         self._destructive = destructive_scanner
         self._financial = financial_scanner
-        self._tagger = Tagger()
 
     def run(
         self,
         tool_call: ToolCall,
         *,
         context: ExecutionContext | None = None,
-    ) -> ScanResult:
-        start = time.perf_counter()
-        ctx = context or ExecutionContext()
+    ) -> Any:
+        return super().run(tool_call, context=context)
 
-        scan_text = f"{tool_call.tool_name} {json.dumps(tool_call.arguments)}"
+    def _execute(
+        self, input_data: ToolCall, context: ExecutionContext
+    ) -> list[Finding]:
+        scan_text = f"{input_data.tool_name} {json.dumps(input_data.arguments)}"
         tainted = self._tagger.tag(scan_text, TrustLevel.USER, "tool_call_pipeline")
 
-        all_findings: list[Finding] = []
-        stages_run: list[str] = []
+        findings: list[Finding] = []
 
         if self._destructive:
-            findings = self._destructive.scan(tainted, ctx)
-            if findings:
-                all_findings.extend(findings)
-                stages_run.append("destructive")
+            findings.extend(self._destructive.scan(tainted, context))
 
-        taint_findings = self._check_taint(tool_call, all_findings)
-        if taint_findings:
-            all_findings.extend(taint_findings)
-            stages_run.append("taint_check")
+        findings.extend(self._check_taint(input_data, findings))
 
         if self._financial:
-            findings = self._financial.scan(tainted, ctx)
-            if findings:
-                all_findings.extend(findings)
-                stages_run.append("financial")
+            findings.extend(self._financial.scan(tainted, context))
 
-        latency_ms = (time.perf_counter() - start) * 1000
-        risk_score = max((f.score for f in all_findings), default=0.0)
+        return findings
 
-        if risk_score >= 0.8:
-            action = Action.BLOCK
-        elif risk_score >= 0.5:
-            action = Action.REVIEW
-        elif risk_score >= 0.3:
-            action = Action.REVIEW
-        else:
-            action = Action.ALLOW
+    def _decide(self, risk_score: float, findings: list[Finding]) -> Action:
+        t = self._config.thresholds
+        if risk_score >= t.block:
+            return Action.BLOCK
+        if risk_score >= t.review:
+            return Action.REVIEW
+        return Action.ALLOW
 
-        return ScanResult(
-            safe=action == Action.ALLOW,
-            action=action,
-            risk_score=risk_score,
-            findings=all_findings,
-            redacted_text=None,
-            latency_ms=latency_ms,
-            stages_run=stages_run,
-        )
+    def _redact(self, input_data: Any, findings: list[Finding]) -> str | None:
+        return None
 
     def _check_taint(
-        self, tool_call: ToolCall, existing_findings: list[Finding]
+        self, tool_call: ToolCall, existing: list[Finding]
     ) -> list[Finding]:
         findings: list[Finding] = []
-        has_destructive = any(f.category == "destructive" for f in existing_findings)
+        has_destructive = any(f.category == "destructive" for f in existing)
 
         for source in tool_call.taint_sources:
             if source.trust_level in (TrustLevel.EXTERNAL, TrustLevel.UNKNOWN):
@@ -96,8 +82,8 @@ class ToolCallPipeline:
                     span_end=0,
                     score=score,
                     evidence=(
-                        f"Tool call arguments influenced by untrusted {source.trust_level.value} "
-                        f"data from '{source.origin}'"
+                        f"Tool call arguments influenced by untrusted "
+                        f"{source.trust_level.value} data from '{source.origin}'"
                     ),
                 ))
             elif source.trust_level == TrustLevel.RETRIEVED and has_destructive:
@@ -109,8 +95,8 @@ class ToolCallPipeline:
                     span_end=0,
                     score=0.85,
                     evidence=(
-                        f"Destructive tool call arguments sourced from retrieved data "
-                        f"('{source.origin}')"
+                        f"Destructive tool call arguments sourced from "
+                        f"retrieved data ('{source.origin}')"
                     ),
                 ))
 

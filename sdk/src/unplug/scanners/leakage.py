@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 
-from unplug.core.context import ExecutionContext
+from unplug.core.config import ScannerConfig
 from unplug.core.taint import TaintedText, TrustLevel
-from unplug.models import Finding
+from unplug.scanners.base import RegexScanner
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("api_key_generic", re.compile(r"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?[\w\-]{20,}")),
@@ -20,26 +20,21 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("system_prompt_leak", re.compile(r"(?i)(system\s+prompt|my\s+instructions?\s+(are|say)|I\s+was\s+told\s+to)")),
 ]
 
+_DEFAULT_CONFIG = ScannerConfig(base_score=0.80)
 
-class LeakageScanner:
+
+class LeakageScanner(RegexScanner):
     name = "leakage"
+    _patterns = _PATTERNS
 
-    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
-        if text.trust_level in (TrustLevel.USER, TrustLevel.TRUSTED):
-            return []
+    def __init__(self, config=None, metrics=None):
+        super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
 
-        findings: list[Finding] = []
-        raw = text.text
-        for subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(raw):
-                findings.append(Finding(
-                    category="leakage",
-                    subcategory=subcategory,
-                    stage="regex",
-                    span_start=match.start(),
-                    span_end=match.end(),
-                    score=0.80,
-                    evidence=f"Potential data leakage: {subcategory}",
-                    replacement="[REDACTED]",
-                ))
-        return findings
+    def _should_scan(self, text: TaintedText) -> bool:
+        return text.trust_level not in (TrustLevel.USER, TrustLevel.TRUSTED)
+
+    def _get_replacement(self, subcategory: str) -> str | None:
+        return "[REDACTED]"
+
+    def _make_evidence(self, subcategory: str) -> str:
+        return f"Potential data leakage: {subcategory}"

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 
-from unplug.core.context import ExecutionContext
+from unplug.core.config import ScannerConfig
 from unplug.core.taint import TaintedText, TrustLevel
-from unplug.models import Finding
+from unplug.scanners.base import RegexScanner
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("dangerous_instructions", re.compile(
@@ -20,25 +20,20 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     )),
 ]
 
+_DEFAULT_CONFIG = ScannerConfig(base_score=0.75)
 
-class HarmfulScanner:
+
+class HarmfulScanner(RegexScanner):
     name = "harmful"
+    _patterns = _PATTERNS
 
-    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
-        if text.trust_level not in (TrustLevel.TOOL_OUTPUT, TrustLevel.RETRIEVED, TrustLevel.EXTERNAL):
-            return []
+    def __init__(self, config=None, metrics=None):
+        super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
 
-        findings: list[Finding] = []
-        raw = text.text
-        for subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(raw):
-                findings.append(Finding(
-                    category="harmful",
-                    subcategory=subcategory,
-                    stage="regex",
-                    span_start=match.start(),
-                    span_end=match.end(),
-                    score=0.75,
-                    evidence=f"Potentially harmful content: {subcategory}",
-                ))
-        return findings
+    def _should_scan(self, text: TaintedText) -> bool:
+        return text.trust_level in (
+            TrustLevel.TOOL_OUTPUT, TrustLevel.RETRIEVED, TrustLevel.EXTERNAL
+        )
+
+    def _make_evidence(self, subcategory: str) -> str:
+        return f"Potentially harmful content: {subcategory}"

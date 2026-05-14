@@ -1,21 +1,10 @@
-"""Scanner protocol — all scanners implement this interface.
+"""Scanner protocol — deprecated, use unplug.scanners.base instead.
 
-Deprecated: use unplug.scanners.base.Scanner for v2 context-aware scanning.
+This module exists for backward compatibility only.
 """
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from unplug.scanners.base import Scanner
 
-from unplug.models import Finding, Source
-
-
-@runtime_checkable
-class Scanner(Protocol):
-    """Interface for all Unplug scanners."""
-
-    name: str
-
-    def scan(self, text: str, source: Source) -> list[Finding]:
-        """Scan text and return findings. Must be thread-safe."""
-        ...
+__all__ = ["Scanner"]

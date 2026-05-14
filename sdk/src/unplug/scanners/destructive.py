@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import re
 
-from unplug.core.context import ExecutionContext
-from unplug.core.taint import TaintedText
-from unplug.models import Finding
+from unplug.core.config import ScannerConfig
+from unplug.scanners.base import RegexScanner
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("sql_drop", re.compile(r"(?i)\b(DROP\s+(TABLE|DATABASE|SCHEMA|INDEX)|TRUNCATE\s+TABLE|DELETE\s+FROM)\b")),
@@ -19,22 +18,15 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("git_destructive", re.compile(r"(?i)\b(git\s+(push\s+--force|reset\s+--hard|clean\s+-fd|branch\s+-D))\b")),
 ]
 
+_DEFAULT_CONFIG = ScannerConfig(base_score=0.90)
 
-class DestructiveScanner:
+
+class DestructiveScanner(RegexScanner):
     name = "destructive"
+    _patterns = _PATTERNS
 
-    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
-        findings: list[Finding] = []
-        raw = text.text
-        for subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(raw):
-                findings.append(Finding(
-                    category="destructive",
-                    subcategory=subcategory,
-                    stage="regex",
-                    span_start=match.start(),
-                    span_end=match.end(),
-                    score=0.90,
-                    evidence=f"Destructive operation detected: {subcategory}",
-                ))
-        return findings
+    def __init__(self, config=None, metrics=None):
+        super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
+
+    def _make_evidence(self, subcategory: str) -> str:
+        return f"Destructive operation detected: {subcategory}"

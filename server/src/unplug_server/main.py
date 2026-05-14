@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from unplug import Guard
+from unplug import Guard, __version__
 
 from unplug_server.api.routes import scan
 from unplug_server.core.config import settings
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Unplug API",
     description="Pull the plug on bad AI.",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -31,8 +31,16 @@ app.include_router(scan.router, prefix="/v1")
 
 @app.get("/v1/health")
 async def health():
+    guard: Guard = app.state.guard
     return {
         "status": "ok",
-        "version": "0.1.0",
-        "scanners_loaded": settings.SCANNERS,
+        "version": __version__,
+        "scanners_loaded": list(guard.scanner_registry.available()),
+        "model_loaded": False,
     }
+
+
+@app.get("/v1/stats")
+async def stats():
+    guard: Guard = app.state.guard
+    return guard.stats()
