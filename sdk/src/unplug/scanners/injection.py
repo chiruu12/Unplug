@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 
-from unplug.models import Finding, Source
+from unplug.core.context import ExecutionContext
+from unplug.core.normalize import Normalizer
+from unplug.core.taint import TaintedText
+from unplug.models import Finding
 
 _PATTERNS: list[tuple[str, str, re.Pattern]] = [
     ("instruction_override", "ignore_previous", re.compile(
@@ -27,31 +30,27 @@ _PATTERNS: list[tuple[str, str, re.Pattern]] = [
     )),
 ]
 
+_normalizer = Normalizer()
+
 
 class InjectionScanner:
     name = "injection"
 
-    def scan(self, text: str, source: Source) -> list[Finding]:
-        findings = []
-        normalized = _normalize(text)
+    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
+        findings: list[Finding] = []
+        result = _normalizer.normalize(text.text)
 
-        for category, subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(normalized):
+        for _category, subcategory, pattern in _PATTERNS:
+            for match in pattern.finditer(result.text):
+                orig_start, orig_end = result.to_original_span(match.start(), match.end())
                 findings.append(Finding(
                     category="injection",
                     subcategory=subcategory,
                     stage="regex",
-                    span_start=match.start(),
-                    span_end=match.end(),
+                    span_start=orig_start,
+                    span_end=orig_end,
                     score=0.85,
                     evidence=f"Matched pattern: {subcategory}",
                 ))
 
         return findings
-
-
-def _normalize(text: str) -> str:
-    """Basic normalization — expand in later iterations."""
-    text = re.sub(r"[​‌‍﻿]", "", text)
-    text = re.sub(r"\s+", " ", text)
-    return text

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 
-from unplug.models import Finding, Source
+from unplug.core.context import ExecutionContext
+from unplug.core.taint import TaintedText, TrustLevel
+from unplug.models import Finding
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("dangerous_instructions", re.compile(
@@ -22,13 +24,14 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 class HarmfulScanner:
     name = "harmful"
 
-    def scan(self, text: str, source: Source) -> list[Finding]:
-        if source != Source.TOOL_OUTPUT and source != Source.RETRIEVED:
+    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
+        if text.trust_level not in (TrustLevel.TOOL_OUTPUT, TrustLevel.RETRIEVED, TrustLevel.EXTERNAL):
             return []
 
-        findings = []
+        findings: list[Finding] = []
+        raw = text.text
         for subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(text):
+            for match in pattern.finditer(raw):
                 findings.append(Finding(
                     category="harmful",
                     subcategory=subcategory,

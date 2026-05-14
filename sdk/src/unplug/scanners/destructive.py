@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 
-from unplug.models import Finding, Source
+from unplug.core.context import ExecutionContext
+from unplug.core.taint import TaintedText
+from unplug.models import Finding
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("sql_drop", re.compile(r"(?i)\b(DROP\s+(TABLE|DATABASE|SCHEMA|INDEX)|TRUNCATE\s+TABLE|DELETE\s+FROM)\b")),
@@ -21,10 +23,11 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 class DestructiveScanner:
     name = "destructive"
 
-    def scan(self, text: str, source: Source) -> list[Finding]:
-        findings = []
+    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
+        findings: list[Finding] = []
+        raw = text.text
         for subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(text):
+            for match in pattern.finditer(raw):
                 findings.append(Finding(
                     category="destructive",
                     subcategory=subcategory,

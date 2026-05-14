@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 
-from unplug.models import Finding, Source
+from unplug.core.context import ExecutionContext
+from unplug.core.taint import TaintedText, TrustLevel
+from unplug.models import Finding
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("api_key_generic", re.compile(r"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?[\w\-]{20,}")),
@@ -22,13 +24,14 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 class LeakageScanner:
     name = "leakage"
 
-    def scan(self, text: str, source: Source) -> list[Finding]:
-        if source in (Source.USER, Source.SYSTEM):
+    def scan(self, text: TaintedText, context: ExecutionContext) -> list[Finding]:
+        if text.trust_level in (TrustLevel.USER, TrustLevel.TRUSTED):
             return []
 
-        findings = []
+        findings: list[Finding] = []
+        raw = text.text
         for subcategory, pattern in _PATTERNS:
-            for match in pattern.finditer(text):
+            for match in pattern.finditer(raw):
                 findings.append(Finding(
                     category="leakage",
                     subcategory=subcategory,

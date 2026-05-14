@@ -1,4 +1,7 @@
-"""Scanner protocol — all scanners implement this interface."""
+"""Scanner protocol — all scanners implement this interface.
+
+Deprecated: use unplug.scanners.base.Scanner for v2 context-aware scanning.
+"""
 
 from __future__ import annotations
 
