@@ -1,0 +1,58 @@
+"""ExecutionContext — tracks the full agent session for context-aware enforcement."""
+
+from __future__ import annotations
+
+import time
+import uuid
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, Field
+
+from unplug.core.taint import TaintedText
+
+if TYPE_CHECKING:
+    from unplug.core.secrets import SecretsRegistry
+
+
+class ToolCall(BaseModel):
+    tool_name: str
+    arguments: dict = Field(default_factory=dict)
+    taint_sources: list[TaintedText] = Field(default_factory=list)
+    timestamp: float = Field(default_factory=time.time)
+    result: TaintedText | None = None
+    approved: bool | None = None
+
+
+class ExecutionContext:
+    """Tracks session state: user intent, conversation, tool calls, and risk trajectory."""
+
+    def __init__(
+        self,
+        *,
+        session_id: str | None = None,
+        user_intent: TaintedText | None = None,
+        secrets_registry: SecretsRegistry | None = None,
+    ) -> None:
+        self.session_id = session_id or str(uuid.uuid4())
+        self.user_intent = user_intent
+        self.conversation: list[TaintedText] = []
+        self.tool_calls: list[ToolCall] = []
+        self.risk_trajectory: list[float] = []
+        self.secrets_registry = secrets_registry
+
+    def add_message(self, msg: TaintedText) -> None:
+        self.conversation.append(msg)
+
+    def add_tool_call(self, tc: ToolCall) -> None:
+        self.tool_calls.append(tc)
+
+    def update_risk(self, score: float) -> None:
+        self.risk_trajectory.append(score)
+
+    def get_risk_trend(self, window: int = 5) -> float:
+        """Average slope of the last `window` risk scores. Positive = escalating."""
+        scores = self.risk_trajectory[-window:]
+        if len(scores) < 2:
+            return 0.0
+        slopes = [scores[i + 1] - scores[i] for i in range(len(scores) - 1)]
+        return sum(slopes) / len(slopes)
