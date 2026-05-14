@@ -5,10 +5,17 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+from unplug.core.context import ExecutionContext, ToolCall
+from unplug.core.normalize import Normalizer
+from unplug.core.secrets import SecretsSanitizer, SecretsRegistry
+from unplug.core.taint import Tagger, TaintedText, TrustLevel, trust_level_from_source
 from unplug.models import Action, ScanRequest, ScanResult, Source
+from unplug.pipelines.input import InputPipeline
+from unplug.pipelines.output import OutputPipeline
+from unplug.pipelines.toolcall import ToolCallPipeline
 
 if TYPE_CHECKING:
-    from unplug.scanner import Scanner
+    from unplug.scanners.base import Scanner
 
 
 class Guard:
@@ -23,48 +30,66 @@ class Guard:
         mode: str = "local",
         server_url: str | None = None,
         fail_mode: str = "closed",
+        secrets_registry: SecretsRegistry | None = None,
     ) -> None:
         self._mode = mode
         self._server_url = server_url
         self._fail_mode = fail_mode
-        self._scanners: list[Scanner] = []
-        self._load_scanners(scanners or ["injection", "destructive", "leakage", "harmful"])
+        self._secrets_registry = secrets_registry or SecretsRegistry()
+        self._context = ExecutionContext(secrets_registry=self._secrets_registry)
 
-    def _load_scanners(self, names: list[str]) -> None:
-        for name in names:
-            scanner = _get_scanner(name)
-            if scanner is not None:
-                self._scanners.append(scanner)
+        scanner_names = scanners or ["injection", "destructive", "leakage", "harmful"]
+        v2_scanners = _load_v2_scanners(scanner_names)
+
+        self._input_pipeline = InputPipeline(
+            scanners=v2_scanners,
+            normalizer=Normalizer(),
+            tagger=Tagger(),
+        )
+
+        self._output_pipeline = OutputPipeline(
+            secrets_sanitizer=SecretsSanitizer(self._secrets_registry),
+            leakage_scanner=_get_scanner("leakage"),
+            secrets_scanner=_get_scanner("secrets"),
+        )
+
+        self._tool_pipeline = ToolCallPipeline(
+            destructive_scanner=_get_scanner("destructive"),
+            financial_scanner=_get_scanner("financial"),
+        )
+
+    @property
+    def context(self) -> ExecutionContext:
+        return self._context
+
+    @property
+    def secrets(self) -> SecretsRegistry:
+        return self._secrets_registry
 
     def scan(self, text: str, source: Source | str = Source.USER) -> ScanResult:
         """Scan text and return findings with optional redaction."""
         if isinstance(source, str):
             source = Source(source)
+        return self._input_pipeline.run(text, source=source, context=self._context)
 
-        start = time.perf_counter()
-        all_findings = []
-        stages_run = []
+    def scan_output(self, text: str | TaintedText) -> ScanResult:
+        """Scan agent output for secrets and data leakage."""
+        return self._output_pipeline.run(text, context=self._context)
 
-        for scanner in self._scanners:
-            findings = scanner.scan(text, source)
-            if findings:
-                all_findings.extend(findings)
-                stages_run.append(scanner.name)
-
-        latency_ms = (time.perf_counter() - start) * 1000
-        risk_score = max((f.score for f in all_findings), default=0.0)
-        action = _decide_action(risk_score, all_findings)
-        redacted = _redact(text, all_findings) if all_findings else None
-
-        return ScanResult(
-            safe=action == Action.ALLOW,
-            action=action,
-            risk_score=risk_score,
-            findings=all_findings,
-            redacted_text=redacted,
-            latency_ms=latency_ms,
-            stages_run=stages_run,
+    def check_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict,
+        *,
+        taint_sources: list[TaintedText] | None = None,
+    ) -> ScanResult:
+        """Check a proposed tool call for destructive, taint, and financial risks."""
+        tc = ToolCall(
+            tool_name=tool_name,
+            arguments=arguments,
+            taint_sources=taint_sources or [],
         )
+        return self._tool_pipeline.run(tc, context=self._context)
 
     def scan_request(self, request: ScanRequest) -> ScanResult:
         """Scan from a ScanRequest object."""
@@ -89,43 +114,32 @@ def _get_scanner(name: str):
     """Lazy-load a scanner by name."""
     if name == "injection":
         from unplug.scanners.injection import InjectionScanner
-
         return InjectionScanner()
     if name == "destructive":
         from unplug.scanners.destructive import DestructiveScanner
-
         return DestructiveScanner()
     if name == "leakage":
         from unplug.scanners.leakage import LeakageScanner
-
         return LeakageScanner()
     if name == "harmful":
         from unplug.scanners.harmful import HarmfulScanner
-
         return HarmfulScanner()
+    if name == "financial":
+        from unplug.scanners.financial import FinancialScanner
+        return FinancialScanner()
+    if name == "secrets":
+        from unplug.scanners.secrets import SecretsScanner
+        return SecretsScanner()
     return None
 
 
-def _decide_action(risk_score: float, findings: list) -> Action:
-    if risk_score >= 0.8:
-        return Action.BLOCK
-    if risk_score >= 0.5:
-        return Action.REDACT
-    if risk_score >= 0.3:
-        return Action.REVIEW
-    return Action.ALLOW
-
-
-def _redact(text: str, findings: list) -> str:
-    spans = sorted(
-        [(f.span_start, f.span_end, f.replacement) for f in findings if f.score >= 0.5],
-        key=lambda s: s[0],
-        reverse=True,
-    )
-    result = text
-    for start, end, replacement in spans:
-        result = result[:start] + (replacement or "[REDACTED]") + result[end:]
-    return result
+def _load_v2_scanners(names: list[str]) -> list:
+    scanners = []
+    for name in names:
+        scanner = _get_scanner(name)
+        if scanner is not None:
+            scanners.append(scanner)
+    return scanners
 
 
 def _auto_instrument(guard: Guard) -> None:
