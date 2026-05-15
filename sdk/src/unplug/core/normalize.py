@@ -1,0 +1,431 @@
+"""12-stage text normalizer with span mapping for bypass detection."""
+
+from __future__ import annotations
+
+import base64
+import re
+import unicodedata
+
+from pydantic import BaseModel, Field
+
+
+class NormalizeResult(BaseModel):
+    text: str
+    original: str
+    offset_table: list[int] = Field(default_factory=list)
+    stages_applied: list[str] = Field(default_factory=list)
+    reversed_text: str | None = None
+
+    def to_original_span(self, norm_start: int, norm_end: int) -> tuple[int, int]:
+        if not self.offset_table or norm_start >= len(self.offset_table):
+            return (norm_start, norm_end)
+        orig_start = self.offset_table[min(norm_start, len(self.offset_table) - 1)]
+        orig_end_idx = min(norm_end - 1, len(self.offset_table) - 1)
+        if norm_end > 0 and orig_end_idx >= 0:
+            orig_end = self.offset_table[orig_end_idx] + 1
+        else:
+            orig_end = orig_start
+        return (orig_start, max(orig_end, orig_start))
+
+    model_config = {"arbitrary_types_allowed": True}
+
+
+_LEET_MAP: dict[str, str] = {
+    "3": "e", "4": "a", "0": "o", "1": "i", "5": "s", "7": "t", "@": "a",
+}
+
+_ZERO_WIDTH_CHARS = set("​‌‍﻿⁠­")
+
+_HOMOGLYPH_MAP: dict[str, str] = {
+    "а": "a",  # Cyrillic а
+    "е": "e",  # Cyrillic е
+    "о": "o",  # Cyrillic о
+    "р": "p",  # Cyrillic р
+    "с": "c",  # Cyrillic с
+    "у": "y",  # Cyrillic у (maps to y in visual context)
+    "х": "x",  # Cyrillic х
+    "і": "i",  # Cyrillic і
+    "ј": "j",  # Cyrillic ј
+    "һ": "h",  # Cyrillic һ
+    "А": "A",  # Cyrillic А
+    "В": "B",  # Cyrillic В
+    "Е": "E",  # Cyrillic Е
+    "К": "K",  # Cyrillic К
+    "М": "M",  # Cyrillic М
+    "Н": "H",  # Cyrillic Н
+    "О": "O",  # Cyrillic О
+    "Р": "P",  # Cyrillic Р
+    "С": "C",  # Cyrillic С
+    "Т": "T",  # Cyrillic Т
+    "Х": "X",  # Cyrillic Х
+    "Ͱ": "A",  # Greek Ά (approximate)
+    "Α": "A",  # Greek Α
+    "Β": "B",  # Greek Β
+    "Ε": "E",  # Greek Ε
+    "Η": "H",  # Greek Η
+    "Ι": "I",  # Greek Ι
+    "Κ": "K",  # Greek Κ
+    "Μ": "M",  # Greek Μ
+    "Ν": "N",  # Greek Ν
+    "Ο": "O",  # Greek Ο
+    "Ρ": "P",  # Greek Ρ
+    "Τ": "T",  # Greek Τ
+    "Υ": "Y",  # Greek Υ
+    "Χ": "X",  # Greek Χ
+    "α": "a",  # Greek α (visually similar)
+    "ο": "o",  # Greek ο
+}
+
+_ENCLOSED_MAP: dict[str, str] = {}
+
+def _build_enclosed_map() -> None:
+    for offset in range(26):
+        _ENCLOSED_MAP[chr(0x24B6 + offset)] = chr(ord("A") + offset)
+        _ENCLOSED_MAP[chr(0x24D0 + offset)] = chr(ord("a") + offset)
+    for offset in range(26):
+        _ENCLOSED_MAP[chr(0xFF21 + offset)] = chr(ord("A") + offset)
+        _ENCLOSED_MAP[chr(0xFF41 + offset)] = chr(ord("a") + offset)
+    for offset in range(10):
+        _ENCLOSED_MAP[chr(0xFF10 + offset)] = chr(ord("0") + offset)
+    for offset in range(10):
+        _ENCLOSED_MAP[chr(0x2460 + offset)] = str(offset + 1)
+
+_build_enclosed_map()
+
+_OVERRIDE_VERBS: dict[str, str] = {
+    # Spanish
+    "ignorar": "ignore", "olvidar": "forget", "descartar": "disregard",
+    "anular": "override", "saltear": "bypass",
+    # French
+    "ignorer": "ignore", "oublier": "forget", "contourner": "bypass",
+    "remplacer": "override",
+    # German
+    "ignorieren": "ignore", "vergessen": "forget", "umgehen": "bypass",
+    "überschreiben": "override",
+    # Portuguese
+    "ignorar": "ignore", "esquecer": "forget", "contornar": "bypass",
+    "substituir": "override",
+    # Italian
+    "ignorare": "ignore", "dimenticare": "forget", "aggirare": "bypass",
+    "sostituire": "override",
+    # Japanese romaji
+    "mushi": "ignore", "wasureru": "forget", "kaihi": "bypass",
+    # Chinese pinyin
+    "hulue": "ignore", "wangji": "forget", "raoguo": "bypass",
+}
+
+_OVERRIDE_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(v) for v in _OVERRIDE_VERBS) + r")\b",
+    re.IGNORECASE,
+)
+
+_ALL_STAGES = [
+    "zero_width", "base64", "fullwidth", "enclosed", "homoglyphs",
+    "leet", "spacing", "cross_line", "markdown", "delimiters",
+    "cross_language", "reversed",
+]
+
+
+class Normalizer:
+    """12-stage text normalizer that preserves span mapping to original text."""
+
+    def __init__(self, stages: list[str] | None = None) -> None:
+        self._stages = stages or list(_ALL_STAGES)
+
+    def normalize(self, text: str) -> NormalizeResult:
+        if not text:
+            return NormalizeResult(text="", original="", offset_table=[], stages_applied=[])
+
+        original = text
+        offset_table = list(range(len(text)))
+        stages_applied: list[str] = []
+        reversed_text: str | None = None
+
+        stage_fns = {
+            "leet": _normalize_leet,
+            "spacing": _collapse_spacing,
+            "zero_width": _strip_zero_width,
+            "cross_line": _join_cross_line,
+            "markdown": _strip_markdown,
+            "homoglyphs": _normalize_homoglyphs,
+            "fullwidth": _normalize_fullwidth,
+            "base64": _decode_base64,
+            "reversed": None,
+            "enclosed": _normalize_enclosed,
+            "delimiters": _strip_delimiters,
+            "cross_language": _match_cross_language,
+        }
+
+        for stage_name in self._stages:
+            if stage_name == "reversed":
+                reversed_text = text[::-1]
+                stages_applied.append("reversed")
+                continue
+
+            fn = stage_fns.get(stage_name)
+            if fn is None:
+                continue
+
+            new_text, new_table = fn(text, offset_table)
+            if new_text != text:
+                text = new_text
+                offset_table = new_table
+                stages_applied.append(stage_name)
+
+        return NormalizeResult(
+            text=text,
+            original=original,
+            offset_table=offset_table,
+            stages_applied=stages_applied,
+            reversed_text=reversed_text,
+        )
+
+
+def _normalize_leet(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    chars = list(text)
+    for i, ch in enumerate(chars):
+        if ch in _LEET_MAP:
+            chars[i] = _LEET_MAP[ch]
+    return "".join(chars), list(offset_table)
+
+
+def _collapse_spacing(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    pattern = re.compile(r"\b([a-zA-Z])((?:\s[a-zA-Z]){2,})\b")
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    i = 0
+    for m in pattern.finditer(text):
+        start, end = m.start(), m.end()
+        while i < start:
+            result_chars.append(text[i])
+            result_offsets.append(offset_table[i])
+            i += 1
+        spaced = m.group(0)
+        for ch_idx in range(len(spaced)):
+            ch = spaced[ch_idx]
+            if ch != " ":
+                result_chars.append(ch)
+                result_offsets.append(offset_table[start + ch_idx])
+        i = end
+
+    while i < len(text):
+        result_chars.append(text[i])
+        result_offsets.append(offset_table[i])
+        i += 1
+
+    new_text = "".join(result_chars)
+    if new_text == text:
+        return text, offset_table
+    return new_text, result_offsets
+
+
+def _strip_zero_width(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    for i, ch in enumerate(text):
+        if ch not in _ZERO_WIDTH_CHARS:
+            result_chars.append(ch)
+            result_offsets.append(offset_table[i])
+    new_text = "".join(result_chars)
+    if new_text == text:
+        return text, offset_table
+    return new_text, result_offsets
+
+
+def _join_cross_line(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    pattern = re.compile(r"([a-z])\n([a-z])")
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    i = 0
+    for m in pattern.finditer(text):
+        nl_pos = m.start() + 1
+        while i < nl_pos:
+            result_chars.append(text[i])
+            result_offsets.append(offset_table[i])
+            i += 1
+        i += 1  # skip the newline
+
+    while i < len(text):
+        result_chars.append(text[i])
+        result_offsets.append(offset_table[i])
+        i += 1
+
+    new_text = "".join(result_chars)
+    if new_text == text:
+        return text, offset_table
+    return new_text, result_offsets
+
+
+def _strip_markdown(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if i < n - 1 and text[i:i+2] == "**":
+            i += 2
+        elif i < n - 1 and text[i:i+2] == "~~":
+            i += 2
+        elif text[i] == "`":
+            i += 1
+        elif text[i] == "*" and (i == 0 or text[i-1] in " \n") and i + 1 < n and text[i+1] != " ":
+            i += 1
+        elif text[i] == "#" and (i == 0 or text[i-1] == "\n"):
+            while i < n and text[i] == "#":
+                i += 1
+            if i < n and text[i] == " ":
+                i += 1
+        else:
+            result_chars.append(text[i])
+            result_offsets.append(offset_table[i])
+            i += 1
+            continue
+        continue
+
+    new_text = "".join(result_chars)
+    if new_text == text:
+        return text, offset_table
+    return new_text, result_offsets
+
+
+def _normalize_homoglyphs(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    chars = list(text)
+    changed = False
+    for i, ch in enumerate(chars):
+        if ch in _HOMOGLYPH_MAP:
+            chars[i] = _HOMOGLYPH_MAP[ch]
+            changed = True
+    if not changed:
+        return text, offset_table
+    return "".join(chars), list(offset_table)
+
+
+def _normalize_fullwidth(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    normalized = unicodedata.normalize("NFKC", text)
+    if normalized == text:
+        return text, offset_table
+
+    new_offsets: list[int] = []
+    orig_idx = 0
+    norm_idx = 0
+    orig_len = len(text)
+    norm_len = len(normalized)
+
+    while norm_idx < norm_len and orig_idx < orig_len:
+        orig_char_nfkc = unicodedata.normalize("NFKC", text[orig_idx])
+        chunk_len = len(orig_char_nfkc)
+        for j in range(chunk_len):
+            if norm_idx + j < norm_len:
+                new_offsets.append(offset_table[orig_idx])
+        norm_idx += chunk_len
+        orig_idx += 1
+
+    while len(new_offsets) < norm_len:
+        new_offsets.append(new_offsets[-1] if new_offsets else 0)
+
+    return normalized, new_offsets[:norm_len]
+
+
+def _decode_base64(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    pattern = re.compile(r"[A-Za-z0-9+/]{20,}={0,2}")
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    last_end = 0
+
+    for m in pattern.finditer(text):
+        candidate = m.group(0)
+        try:
+            decoded_bytes = base64.b64decode(candidate, validate=True)
+            decoded = decoded_bytes.decode("utf-8")
+        except Exception:
+            continue
+
+        for i in range(last_end, m.start()):
+            result_chars.append(text[i])
+            result_offsets.append(offset_table[i])
+
+        orig_start = offset_table[m.start()]
+        for ch in decoded:
+            result_chars.append(ch)
+            result_offsets.append(orig_start)
+        last_end = m.end()
+
+    if last_end == 0:
+        return text, offset_table
+
+    for i in range(last_end, len(text)):
+        result_chars.append(text[i])
+        result_offsets.append(offset_table[i])
+
+    return "".join(result_chars), result_offsets
+
+
+def _normalize_enclosed(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    chars = list(text)
+    changed = False
+    for i, ch in enumerate(chars):
+        if ch in _ENCLOSED_MAP:
+            chars[i] = _ENCLOSED_MAP[ch]
+            changed = True
+    if not changed:
+        return text, offset_table
+    return "".join(chars), list(offset_table)
+
+
+def _strip_delimiters(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    pattern = re.compile(r"\b([a-zA-Z])([.\-_])([a-zA-Z])(?:\2[a-zA-Z]){2,}\b")
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    i = 0
+    for m in pattern.finditer(text):
+        start, end = m.start(), m.end()
+        while i < start:
+            result_chars.append(text[i])
+            result_offsets.append(offset_table[i])
+            i += 1
+        delim = m.group(2)
+        segment = text[start:end]
+        for ci, ch in enumerate(segment):
+            if ch != delim:
+                result_chars.append(ch)
+                result_offsets.append(offset_table[start + ci])
+        i = end
+
+    while i < len(text):
+        result_chars.append(text[i])
+        result_offsets.append(offset_table[i])
+        i += 1
+
+    new_text = "".join(result_chars)
+    if new_text == text:
+        return text, offset_table
+    return new_text, result_offsets
+
+
+def _match_cross_language(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
+    result_chars: list[str] = []
+    result_offsets: list[int] = []
+    last_end = 0
+
+    for m in _OVERRIDE_PATTERN.finditer(text):
+        for i in range(last_end, m.start()):
+            result_chars.append(text[i])
+            result_offsets.append(offset_table[i])
+
+        matched_word = m.group(0).lower()
+        replacement = _OVERRIDE_VERBS.get(matched_word, matched_word)
+        orig_start = offset_table[m.start()]
+
+        for ch in replacement:
+            result_chars.append(ch)
+            result_offsets.append(orig_start)
+        last_end = m.end()
+
+    if last_end == 0:
+        return text, offset_table
+
+    for i in range(last_end, len(text)):
+        result_chars.append(text[i])
+        result_offsets.append(offset_table[i])
+
+    return "".join(result_chars), result_offsets
