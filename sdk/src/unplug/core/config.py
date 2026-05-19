@@ -56,9 +56,11 @@ class GuardConfig(BaseModel):
     @classmethod
     def from_file(cls, path: str | Path) -> GuardConfig:
         from unplug.core.config_loader import load
+
         return load(file_path=path)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GuardConfig:
         from unplug.core.config_loader import build_config
+
         return build_config(data)

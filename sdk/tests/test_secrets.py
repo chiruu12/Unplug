@@ -45,7 +45,7 @@ class TestSecretsRegistry:
         matches = reg.contains(text)
         exact = [m for m in matches if m.source == "registry_exact_match"]
         assert len(exact) == 1
-        assert text[exact[0].span_start:exact[0].span_end] == "secret_token_value"
+        assert text[exact[0].span_start : exact[0].span_end] == "secret_token_value"
 
     def test_contains_multiple_occurrences(self):
         reg = SecretsRegistry()

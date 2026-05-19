@@ -39,9 +39,7 @@ class OutputPipeline(BasePipeline):
         tainted = self._ensure_tainted(text, TrustLevel.TOOL_OUTPUT, "output_pipeline")
         return super().run(tainted, context=context)
 
-    def _execute(
-        self, input_data: TaintedText, context: ExecutionContext
-    ) -> list[Finding]:
+    def _execute(self, input_data: TaintedText, context: ExecutionContext) -> list[Finding]:
         findings: list[Finding] = []
         if self._secrets:
             findings.extend(self._secrets.scan(input_data, context))

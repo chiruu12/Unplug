@@ -36,9 +36,7 @@ class ToolCallPipeline(BasePipeline):
     ) -> Any:
         return super().run(tool_call, context=context)
 
-    def _execute(
-        self, input_data: ToolCall, context: ExecutionContext
-    ) -> list[Finding]:
+    def _execute(self, input_data: ToolCall, context: ExecutionContext) -> list[Finding]:
         scan_text = f"{input_data.tool_name} {json.dumps(input_data.arguments)}"
         tainted = self._tagger.tag(scan_text, TrustLevel.USER, "tool_call_pipeline")
 
@@ -65,39 +63,41 @@ class ToolCallPipeline(BasePipeline):
     def _redact(self, input_data: Any, findings: list[Finding]) -> str | None:
         return None
 
-    def _check_taint(
-        self, tool_call: ToolCall, existing: list[Finding]
-    ) -> list[Finding]:
+    def _check_taint(self, tool_call: ToolCall, existing: list[Finding]) -> list[Finding]:
         findings: list[Finding] = []
         has_destructive = any(f.category == "destructive" for f in existing)
 
         for source in tool_call.taint_sources:
             if source.trust_level in (TrustLevel.EXTERNAL, TrustLevel.UNKNOWN):
                 score = 0.90 if has_destructive else 0.60
-                findings.append(Finding(
-                    category="taint",
-                    subcategory="untrusted_source_in_tool_call",
-                    stage="taint_check",
-                    span_start=0,
-                    span_end=0,
-                    score=score,
-                    evidence=(
-                        f"Tool call arguments influenced by untrusted "
-                        f"{source.trust_level.value} data from '{source.origin}'"
-                    ),
-                ))
+                findings.append(
+                    Finding(
+                        category="taint",
+                        subcategory="untrusted_source_in_tool_call",
+                        stage="taint_check",
+                        span_start=0,
+                        span_end=0,
+                        score=score,
+                        evidence=(
+                            f"Tool call arguments influenced by untrusted "
+                            f"{source.trust_level.value} data from '{source.origin}'"
+                        ),
+                    )
+                )
             elif source.trust_level == TrustLevel.RETRIEVED and has_destructive:
-                findings.append(Finding(
-                    category="taint",
-                    subcategory="retrieved_source_in_destructive_call",
-                    stage="taint_check",
-                    span_start=0,
-                    span_end=0,
-                    score=0.85,
-                    evidence=(
-                        f"Destructive tool call arguments sourced from "
-                        f"retrieved data ('{source.origin}')"
-                    ),
-                ))
+                findings.append(
+                    Finding(
+                        category="taint",
+                        subcategory="retrieved_source_in_destructive_call",
+                        stage="taint_check",
+                        span_start=0,
+                        span_end=0,
+                        score=0.85,
+                        evidence=(
+                            f"Destructive tool call arguments sourced from "
+                            f"retrieved data ('{source.origin}')"
+                        ),
+                    )
+                )
 
         return findings

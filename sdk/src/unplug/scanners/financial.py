@@ -19,15 +19,15 @@ _CRYPTO_PATTERNS: list[tuple[str, re.Pattern]] = [
 ]
 
 _PAYMENT_PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("stripe_api", re.compile(
-        r"(?i)\b(stripe\.(charges|paymentIntents|transfers|subscriptions)\.create)\b"
-    )),
-    ("paypal_api", re.compile(
-        r"(?i)\b(paypal\.(payment|Payout)\.create)\b"
-    )),
-    ("wire_transfer", re.compile(
-        r"(?i)\b(wire\s+transfer|bank\s+transfer|SWIFT\s+transfer|IBAN\s*[:=]\s*\S+)\b"
-    )),
+    (
+        "stripe_api",
+        re.compile(r"(?i)\b(stripe\.(charges|paymentIntents|transfers|subscriptions)\.create)\b"),
+    ),
+    ("paypal_api", re.compile(r"(?i)\b(paypal\.(payment|Payout)\.create)\b")),
+    (
+        "wire_transfer",
+        re.compile(r"(?i)\b(wire\s+transfer|bank\s+transfer|SWIFT\s+transfer|IBAN\s*[:=]\s*\S+)\b"),
+    ),
 ]
 
 _AMOUNT_PATTERN = re.compile(
@@ -56,9 +56,7 @@ class FinancialScanner(BaseScanner):
         self.auto_block_threshold = auto_block_threshold
         self.review_threshold = review_threshold
 
-    def _scan(
-        self, text: TaintedText, context: ExecutionContext
-    ) -> Generator[Finding, None, None]:
+    def _scan(self, text: TaintedText, context: ExecutionContext) -> Generator[Finding, None, None]:
         raw = text.text
         untrusted = text.trust_level in (TrustLevel.EXTERNAL, TrustLevel.UNKNOWN)
         boost = self._config.trust_boost if untrusted else 0.0
@@ -67,9 +65,7 @@ class FinancialScanner(BaseScanner):
         yield from self._scan_payments(raw, boost)
         yield from self._scan_amounts(raw, boost)
 
-    def _scan_crypto(
-        self, raw: str, boost: float
-    ) -> Generator[Finding, None, None]:
+    def _scan_crypto(self, raw: str, boost: float) -> Generator[Finding, None, None]:
         for subcategory, pattern in _CRYPTO_PATTERNS:
             for match in pattern.finditer(raw):
                 yield Finding(
@@ -82,9 +78,7 @@ class FinancialScanner(BaseScanner):
                     evidence=f"Crypto address detected: {subcategory}",
                 )
 
-    def _scan_payments(
-        self, raw: str, boost: float
-    ) -> Generator[Finding, None, None]:
+    def _scan_payments(self, raw: str, boost: float) -> Generator[Finding, None, None]:
         for subcategory, pattern in _PAYMENT_PATTERNS:
             for match in pattern.finditer(raw):
                 yield Finding(
@@ -97,9 +91,7 @@ class FinancialScanner(BaseScanner):
                     evidence=f"Payment API detected: {subcategory}",
                 )
 
-    def _scan_amounts(
-        self, raw: str, boost: float
-    ) -> Generator[Finding, None, None]:
+    def _scan_amounts(self, raw: str, boost: float) -> Generator[Finding, None, None]:
         for match in _AMOUNT_PATTERN.finditer(raw):
             try:
                 amount = _parse_amount(match.group(2))

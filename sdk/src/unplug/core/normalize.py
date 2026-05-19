@@ -31,7 +31,13 @@ class NormalizeResult(BaseModel):
 
 
 _LEET_MAP: dict[str, str] = {
-    "3": "e", "4": "a", "0": "o", "1": "i", "5": "s", "7": "t", "@": "a",
+    "3": "e",
+    "4": "a",
+    "0": "o",
+    "1": "i",
+    "5": "s",
+    "7": "t",
+    "@": "a",
 }
 
 _ZERO_WIDTH_CHARS = set("​‌‍﻿⁠­")
@@ -78,6 +84,7 @@ _HOMOGLYPH_MAP: dict[str, str] = {
 
 _ENCLOSED_MAP: dict[str, str] = {}
 
+
 def _build_enclosed_map() -> None:
     for offset in range(26):
         _ENCLOSED_MAP[chr(0x24B6 + offset)] = chr(ord("A") + offset)
@@ -90,28 +97,43 @@ def _build_enclosed_map() -> None:
     for offset in range(10):
         _ENCLOSED_MAP[chr(0x2460 + offset)] = str(offset + 1)
 
+
 _build_enclosed_map()
 
 _OVERRIDE_VERBS: dict[str, str] = {
     # Spanish
-    "ignorar": "ignore", "olvidar": "forget", "descartar": "disregard",
-    "anular": "override", "saltear": "bypass",
+    "ignorar": "ignore",
+    "olvidar": "forget",
+    "descartar": "disregard",
+    "anular": "override",
+    "saltear": "bypass",
     # French
-    "ignorer": "ignore", "oublier": "forget", "contourner": "bypass",
+    "ignorer": "ignore",
+    "oublier": "forget",
+    "contourner": "bypass",
     "remplacer": "override",
     # German
-    "ignorieren": "ignore", "vergessen": "forget", "umgehen": "bypass",
+    "ignorieren": "ignore",
+    "vergessen": "forget",
+    "umgehen": "bypass",
     "überschreiben": "override",
     # Portuguese (ignorar shared with Spanish)
-    "esquecer": "forget", "contornar": "bypass",
+    "esquecer": "forget",
+    "contornar": "bypass",
     "substituir": "override",
     # Italian
-    "ignorare": "ignore", "dimenticare": "forget", "aggirare": "bypass",
+    "ignorare": "ignore",
+    "dimenticare": "forget",
+    "aggirare": "bypass",
     "sostituire": "override",
     # Japanese romaji
-    "mushi": "ignore", "wasureru": "forget", "kaihi": "bypass",
+    "mushi": "ignore",
+    "wasureru": "forget",
+    "kaihi": "bypass",
     # Chinese pinyin
-    "hulue": "ignore", "wangji": "forget", "raoguo": "bypass",
+    "hulue": "ignore",
+    "wangji": "forget",
+    "raoguo": "bypass",
 }
 
 _OVERRIDE_PATTERN = re.compile(
@@ -120,9 +142,18 @@ _OVERRIDE_PATTERN = re.compile(
 )
 
 _ALL_STAGES = [
-    "zero_width", "base64", "fullwidth", "enclosed", "homoglyphs",
-    "leet", "spacing", "cross_line", "markdown", "delimiters",
-    "cross_language", "reversed",
+    "zero_width",
+    "base64",
+    "fullwidth",
+    "enclosed",
+    "homoglyphs",
+    "leet",
+    "spacing",
+    "cross_line",
+    "markdown",
+    "delimiters",
+    "cross_language",
+    "reversed",
 ]
 
 
@@ -262,15 +293,17 @@ def _strip_markdown(text: str, offset_table: list[int]) -> tuple[str, list[int]]
     i = 0
     n = len(text)
     while i < n:
-        if i < n - 1 and text[i:i+2] == "**":
+        if i < n - 1 and text[i : i + 2] == "**":
             i += 2
-        elif i < n - 1 and text[i:i+2] == "~~":
+        elif i < n - 1 and text[i : i + 2] == "~~":
             i += 2
         elif text[i] == "`":
             i += 1
-        elif text[i] == "*" and (i == 0 or text[i-1] in " \n") and i + 1 < n and text[i+1] != " ":
+        elif (
+            text[i] == "*" and (i == 0 or text[i - 1] in " \n") and i + 1 < n and text[i + 1] != " "
+        ):
             i += 1
-        elif text[i] == "#" and (i == 0 or text[i-1] == "\n"):
+        elif text[i] == "#" and (i == 0 or text[i - 1] == "\n"):
             while i < n and text[i] == "#":
                 i += 1
             if i < n and text[i] == " ":

@@ -32,7 +32,7 @@ def load_from_env(prefix: str = "UNPLUG_") -> dict[str, Any]:
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
-        parts = key[len(prefix):].lower().split("__")
+        parts = key[len(prefix) :].lower().split("__")
         target = result
         for part in parts[:-1]:
             target = target.setdefault(part, {})
@@ -73,10 +73,9 @@ def _merge(base: dict, override: dict) -> dict:
 
 
 def _build_thresholds(data: dict[str, Any]) -> ThresholdConfig:
-    return ThresholdConfig(**{
-        k: float(v) for k, v in data.items()
-        if k in ThresholdConfig.model_fields
-    })
+    return ThresholdConfig(
+        **{k: float(v) for k, v in data.items() if k in ThresholdConfig.model_fields}
+    )
 
 
 def _build_pipeline(data: dict[str, Any]) -> PipelineConfig:
@@ -90,10 +89,7 @@ def _build_pipeline(data: dict[str, Any]) -> PipelineConfig:
 
 def _build_scanner_configs(data: dict[str, Any]) -> dict[str, ScannerConfig]:
     return {
-        name: ScannerConfig(**{
-            k: v for k, v in cfg.items()
-            if k in ScannerConfig.model_fields
-        })
+        name: ScannerConfig(**{k: v for k, v in cfg.items() if k in ScannerConfig.model_fields})
         for name, cfg in data.items()
         if isinstance(cfg, dict)
     }
@@ -121,9 +117,7 @@ def build_config(data: dict[str, Any]) -> GuardConfig:
     if not scanner_data:
         scanner_data = data.get("scanners", {})
         if isinstance(scanner_data, dict):
-            scanner_data = {
-                k: v for k, v in scanner_data.items() if isinstance(v, dict)
-            }
+            scanner_data = {k: v for k, v in scanner_data.items() if isinstance(v, dict)}
         else:
             scanner_data = {}
     if scanner_data:

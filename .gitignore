@@ -203,6 +203,12 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Internal context (strategy, competitive, model plans)
+.context/
+
+# Model weights (large files, local only)
+models/weights/
+
 # Ruff stuff:
 .ruff_cache/
 

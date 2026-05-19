@@ -47,16 +47,13 @@ class ModelProvider(ABC):
             self._loaded = False
 
     @abstractmethod
-    def _do_load(self) -> None:
-        ...
+    def _do_load(self) -> None: ...
 
     @abstractmethod
-    def _do_unload(self) -> None:
-        ...
+    def _do_unload(self) -> None: ...
 
     @abstractmethod
-    def predict(self, inputs: Any) -> Any:
-        ...
+    def predict(self, inputs: Any) -> Any: ...
 
     def predict_batch(self, batch: list[Any]) -> Generator[Any, None, None]:
         """Default: sequential prediction. Override for true batching."""

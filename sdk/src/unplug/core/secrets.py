@@ -8,9 +8,12 @@ import re
 from pydantic import BaseModel, Field
 
 _GENERIC_SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("generic_api_key", re.compile(
-        r"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?[\w\-]{20,}",
-    )),
+    (
+        "generic_api_key",
+        re.compile(
+            r"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?[\w\-]{20,}",
+        ),
+    ),
     ("aws_access_key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("github_token", re.compile(r"(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,}")),
     ("openai_key", re.compile(r"sk-[A-Za-z0-9]{32,}")),
@@ -83,12 +86,14 @@ class SecretsRegistry:
                 span = (idx, idx + len(entry.value))
                 if span not in matched_spans:
                     matched_spans.add(span)
-                    matches.append(SecretMatch(
-                        secret_name=entry.name,
-                        span_start=span[0],
-                        span_end=span[1],
-                        source="registry_exact_match",
-                    ))
+                    matches.append(
+                        SecretMatch(
+                            secret_name=entry.name,
+                            span_start=span[0],
+                            span_end=span[1],
+                            source="registry_exact_match",
+                        )
+                    )
                 start = idx + 1
 
             if entry.pattern:
@@ -97,24 +102,28 @@ class SecretsRegistry:
                     span = (m.start(), m.end())
                     if span not in matched_spans:
                         matched_spans.add(span)
-                        matches.append(SecretMatch(
-                            secret_name=entry.name,
-                            span_start=span[0],
-                            span_end=span[1],
-                            source="pattern_match",
-                        ))
+                        matches.append(
+                            SecretMatch(
+                                secret_name=entry.name,
+                                span_start=span[0],
+                                span_end=span[1],
+                                source="pattern_match",
+                            )
+                        )
 
         for subcategory, pat in _GENERIC_SECRET_PATTERNS:
             for m in pat.finditer(text):
                 span = (m.start(), m.end())
                 if not any(s <= span[0] and span[1] <= e for s, e in matched_spans):
                     matched_spans.add(span)
-                    matches.append(SecretMatch(
-                        secret_name=subcategory,
-                        span_start=span[0],
-                        span_end=span[1],
-                        source="generic_pattern",
-                    ))
+                    matches.append(
+                        SecretMatch(
+                            secret_name=subcategory,
+                            span_start=span[0],
+                            span_end=span[1],
+                            source="generic_pattern",
+                        )
+                    )
 
         return matches
 
@@ -138,7 +147,7 @@ class SecretsSanitizer:
 
         for subcategory, pat in _GENERIC_SECRET_PATTERNS:
             for m in pat.finditer(clean):
-                clean = clean[:m.start()] + "[REDACTED]" + clean[m.end():]
+                clean = clean[: m.start()] + "[REDACTED]" + clean[m.end() :]
                 break
 
         return SanitizeResult(clean_text=clean, secrets_found=matches)

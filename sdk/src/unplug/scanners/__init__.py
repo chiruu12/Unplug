@@ -20,14 +20,16 @@ def _register_builtins() -> None:
     from unplug.scanners.leakage import LeakageScanner
     from unplug.scanners.secrets import SecretsScanner
 
-    _FACTORIES.update({
-        "injection": InjectionScanner,
-        "destructive": DestructiveScanner,
-        "leakage": LeakageScanner,
-        "harmful": HarmfulScanner,
-        "financial": FinancialScanner,
-        "secrets": SecretsScanner,
-    })
+    _FACTORIES.update(
+        {
+            "injection": InjectionScanner,
+            "destructive": DestructiveScanner,
+            "leakage": LeakageScanner,
+            "harmful": HarmfulScanner,
+            "financial": FinancialScanner,
+            "secrets": SecretsScanner,
+        }
+    )
 
 
 class ScannerRegistry:

@@ -162,7 +162,9 @@ class TestGuardConfigFactory:
         assert cfg.scanners == ["injection", "destructive"]
 
     def test_from_dict(self):
-        cfg = GuardConfig.from_dict({
-            "guard": {"scanners": ["harmful"]},
-        })
+        cfg = GuardConfig.from_dict(
+            {
+                "guard": {"scanners": ["harmful"]},
+            }
+        )
         assert cfg.scanners == ["harmful"]

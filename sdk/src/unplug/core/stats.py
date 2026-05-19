@@ -68,18 +68,14 @@ class MetricsCollector:
         self._pipelines: dict[str, PipelineStats] = defaultdict(PipelineStats)
         self._start_time = time.monotonic()
 
-    def record_scanner(
-        self, name: str, *, findings_count: int, latency_ms: float
-    ) -> None:
+    def record_scanner(self, name: str, *, findings_count: int, latency_ms: float) -> None:
         with self._lock:
             s = self._scanners[name]
             s.scans += 1
             s.findings += findings_count
             s.total_latency_ms += latency_ms
 
-    def record_pipeline(
-        self, name: str, *, action: str, latency_ms: float
-    ) -> None:
+    def record_pipeline(self, name: str, *, action: str, latency_ms: float) -> None:
         with self._lock:
             p = self._pipelines[name]
             p.runs += 1

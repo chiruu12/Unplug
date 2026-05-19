@@ -62,7 +62,13 @@ class TestCorrelationFilter:
     def test_injects_correlation_id(self):
         filt = CorrelationFilter()
         record = logging.LogRecord(
-            "test", logging.INFO, "", 0, "msg", (), None,
+            "test",
+            logging.INFO,
+            "",
+            0,
+            "msg",
+            (),
+            None,
         )
         with correlation_scope("abc-123"):
             filt.filter(record)
@@ -71,7 +77,13 @@ class TestCorrelationFilter:
     def test_default_dash_when_no_id(self):
         filt = CorrelationFilter()
         record = logging.LogRecord(
-            "test", logging.INFO, "", 0, "msg", (), None,
+            "test",
+            logging.INFO,
+            "",
+            0,
+            "msg",
+            (),
+            None,
         )
         filt.filter(record)
         assert record.correlation_id == "-"  # type: ignore[attr-defined]

@@ -46,9 +46,7 @@ class InputPipeline(BasePipeline):
 
         return super().run(tainted, context=context)
 
-    def _execute(
-        self, input_data: TaintedText, context: ExecutionContext
-    ) -> list[Finding]:
+    def _execute(self, input_data: TaintedText, context: ExecutionContext) -> list[Finding]:
         findings: list[Finding] = []
         for scanner in self._scanners:
             findings.extend(scanner.scan(input_data, context))

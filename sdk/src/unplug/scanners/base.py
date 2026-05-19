@@ -56,19 +56,23 @@ class BaseScanner(ABC):
             findings = list(self._scan(text, context))
         except Exception as exc:
             _log.error("scanner %s failed: %s", self.name, exc)
-            findings = [Finding(
-                category=self.name,
-                subcategory="scanner_error",
-                stage="error",
-                span_start=0,
-                span_end=len(text.text),
-                score=1.0,
-                evidence=f"Scanner failed: {type(exc).__name__}",
-            )]
+            findings = [
+                Finding(
+                    category=self.name,
+                    subcategory="scanner_error",
+                    stage="error",
+                    span_start=0,
+                    span_end=len(text.text),
+                    score=1.0,
+                    evidence=f"Scanner failed: {type(exc).__name__}",
+                )
+            ]
         elapsed_ms = (time.perf_counter() - start) * 1000
         _log.debug(
             "scanner %s: %d findings in %.1fms",
-            self.name, len(findings), elapsed_ms,
+            self.name,
+            len(findings),
+            elapsed_ms,
         )
 
         if self._metrics:
@@ -83,9 +87,7 @@ class BaseScanner(ABC):
         return True
 
     @abstractmethod
-    def _scan(
-        self, text: TaintedText, context: ExecutionContext
-    ) -> Generator[Finding, None, None]:
+    def _scan(self, text: TaintedText, context: ExecutionContext) -> Generator[Finding, None, None]:
         """Yield findings. Using a generator avoids building intermediate lists."""
         ...
 
@@ -95,9 +97,7 @@ class RegexScanner(BaseScanner):
 
     _patterns: list[tuple[str, re.Pattern]] = []
 
-    def _scan(
-        self, text: TaintedText, context: ExecutionContext
-    ) -> Generator[Finding, None, None]:
+    def _scan(self, text: TaintedText, context: ExecutionContext) -> Generator[Finding, None, None]:
         raw = self._get_scan_text(text)
         yield from self._match_patterns(raw, text)
 
@@ -105,14 +105,10 @@ class RegexScanner(BaseScanner):
         """Override for pre-processing (e.g. normalization). Default: raw text."""
         return text.text
 
-    def _match_patterns(
-        self, raw: str, text: TaintedText
-    ) -> Generator[Finding, None, None]:
+    def _match_patterns(self, raw: str, text: TaintedText) -> Generator[Finding, None, None]:
         for subcategory, pattern in self._patterns:
             for match in pattern.finditer(raw):
-                yield self._make_finding(
-                    subcategory, match.start(), match.end(), raw, text
-                )
+                yield self._make_finding(subcategory, match.start(), match.end(), raw, text)
 
     def _make_finding(
         self,

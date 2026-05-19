@@ -9,9 +9,7 @@ from unplug.scanners.injection import InjectionScanner
 from unplug.scanners.leakage import LeakageScanner
 
 
-def _make_text(
-    text: str, trust: TrustLevel = TrustLevel.USER, origin: str = "test"
-) -> TaintedText:
+def _make_text(text: str, trust: TrustLevel = TrustLevel.USER, origin: str = "test") -> TaintedText:
     return TaintedText(text=text, trust_level=trust, origin=origin)
 
 

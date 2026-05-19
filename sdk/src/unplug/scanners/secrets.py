@@ -19,9 +19,7 @@ class SecretsScanner(BaseScanner):
     def __init__(self, config=None, metrics=None):
         super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
 
-    def _scan(
-        self, text: TaintedText, context: ExecutionContext
-    ) -> Generator[Finding, None, None]:
+    def _scan(self, text: TaintedText, context: ExecutionContext) -> Generator[Finding, None, None]:
         if context.secrets_registry is None:
             return
 

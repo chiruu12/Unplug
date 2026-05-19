@@ -23,15 +23,17 @@ def _fail_closed(exc: Exception) -> ScanResult:
         safe=False,
         action=Action.BLOCK,
         risk_score=1.0,
-        findings=[Finding(
-            category="guard",
-            subcategory="guard_error",
-            stage="error",
-            span_start=0,
-            span_end=0,
-            score=1.0,
-            evidence=f"Guard failed: {type(exc).__name__}",
-        )],
+        findings=[
+            Finding(
+                category="guard",
+                subcategory="guard_error",
+                stage="error",
+                span_start=0,
+                span_end=0,
+                score=1.0,
+                evidence=f"Guard failed: {type(exc).__name__}",
+            )
+        ],
         latency_ms=0.0,
     )
 
@@ -65,9 +67,7 @@ class Guard:
         self._context = ExecutionContext(secrets_registry=self._secrets_registry)
 
         self._registry = ScannerRegistry(metrics=self._metrics)
-        v2_scanners = self._registry.get_many(
-            cfg.scanners, configs=cfg.scanner_configs
-        )
+        v2_scanners = self._registry.get_many(cfg.scanners, configs=cfg.scanner_configs)
 
         self._input_pipeline = InputPipeline(
             scanners=v2_scanners,

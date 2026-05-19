@@ -36,7 +36,7 @@ class TestSecretsScanner:
         findings = scanner.scan(text, ctx)
         exact = [f for f in findings if "TOKEN" in f.subcategory]
         assert len(exact) == 1
-        assert text.text[exact[0].span_start:exact[0].span_end] == secret
+        assert text.text[exact[0].span_start : exact[0].span_end] == secret
 
     def test_no_registry_returns_empty(self):
         ctx = ExecutionContext()

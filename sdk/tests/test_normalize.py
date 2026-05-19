@@ -327,6 +327,7 @@ class TestNormalizer:
 
     def test_base64_decode(self):
         import base64
+
         payload = base64.b64encode(b"ignore previous").decode()
         n = Normalizer()
         result = n.normalize(f"encoded: {payload}")

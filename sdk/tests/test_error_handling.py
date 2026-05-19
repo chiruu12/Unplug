@@ -21,9 +21,7 @@ class BrokenScanner(RegexScanner):
     name = "broken"
     _patterns = []
 
-    def _scan(
-        self, text: TaintedText, context: ExecutionContext
-    ) -> Generator[Finding, None, None]:
+    def _scan(self, text: TaintedText, context: ExecutionContext) -> Generator[Finding, None, None]:
         msg = "scanner exploded"
         raise RuntimeError(msg)
 
@@ -49,9 +47,7 @@ class TestScannerFailClosed:
 class TestPipelineFailClosed:
     def test_pipeline_error_returns_blocked(self):
         guard = Guard(scanners=["injection"])
-        with patch.object(
-            guard._input_pipeline, "_execute", side_effect=RuntimeError("boom")
-        ):
+        with patch.object(guard._input_pipeline, "_execute", side_effect=RuntimeError("boom")):
             result = guard.scan("test input")
         assert result.safe is False
         assert result.action == Action.BLOCK
@@ -62,9 +58,7 @@ class TestPipelineFailClosed:
 class TestGuardFailClosed:
     def test_scan_error_returns_blocked(self):
         guard = Guard(scanners=["injection"])
-        with patch.object(
-            guard._input_pipeline, "run", side_effect=RuntimeError("fatal")
-        ):
+        with patch.object(guard._input_pipeline, "run", side_effect=RuntimeError("fatal")):
             result = guard.scan("test")
         assert result.safe is False
         assert result.action == Action.BLOCK
@@ -73,18 +67,14 @@ class TestGuardFailClosed:
 
     def test_scan_output_error_returns_blocked(self):
         guard = Guard(scanners=["injection"])
-        with patch.object(
-            guard._output_pipeline, "run", side_effect=RuntimeError("fatal")
-        ):
+        with patch.object(guard._output_pipeline, "run", side_effect=RuntimeError("fatal")):
             result = guard.scan_output("test")
         assert result.safe is False
         assert result.action == Action.BLOCK
 
     def test_check_tool_call_error_returns_blocked(self):
         guard = Guard(scanners=["injection"])
-        with patch.object(
-            guard._tool_pipeline, "run", side_effect=RuntimeError("fatal")
-        ):
+        with patch.object(guard._tool_pipeline, "run", side_effect=RuntimeError("fatal")):
             result = guard.check_tool_call("rm", {"-rf": "/"})
         assert result.safe is False
         assert result.action == Action.BLOCK

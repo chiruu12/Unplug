@@ -10,15 +10,24 @@ from unplug.core.taint import TaintedText, TrustLevel
 from unplug.scanners.base import RegexScanner
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("dangerous_instructions", re.compile(
-        r"(?i)\b(how\s+to\s+(make|build|create)\s+(a\s+)?(bomb|weapon|explosive|poison))\b",
-    )),
-    ("self_harm", re.compile(
-        r"(?i)\b(suicide|self[- ]harm|kill\s+(your|my)self|end\s+(your|my)\s+life)\b",
-    )),
-    ("illegal_activity", re.compile(
-        r"(?i)\b(hack\s+into|steal\s+(credentials?|passwords?)|phishing|ransomware)\b",
-    )),
+    (
+        "dangerous_instructions",
+        re.compile(
+            r"(?i)\b(how\s+to\s+(make|build|create)\s+(a\s+)?(bomb|weapon|explosive|poison))\b",
+        ),
+    ),
+    (
+        "self_harm",
+        re.compile(
+            r"(?i)\b(suicide|self[- ]harm|kill\s+(your|my)self|end\s+(your|my)\s+life)\b",
+        ),
+    ),
+    (
+        "illegal_activity",
+        re.compile(
+            r"(?i)\b(hack\s+into|steal\s+(credentials?|passwords?)|phishing|ransomware)\b",
+        ),
+    ),
 ]
 
 _DEFAULT_CONFIG = ScannerConfig(base_score=0.75)
@@ -37,7 +46,9 @@ class HarmfulScanner(RegexScanner):
 
     def _should_scan(self, text: TaintedText) -> bool:
         return text.trust_level in (
-            TrustLevel.TOOL_OUTPUT, TrustLevel.RETRIEVED, TrustLevel.EXTERNAL
+            TrustLevel.TOOL_OUTPUT,
+            TrustLevel.RETRIEVED,
+            TrustLevel.EXTERNAL,
         )
 
     def _make_evidence(self, subcategory: str) -> str:

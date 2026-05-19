@@ -47,15 +47,17 @@ class BasePipeline(ABC):
                 safe=False,
                 action=Action.BLOCK,
                 risk_score=1.0,
-                findings=[Finding(
-                    category=self.name,
-                    subcategory="pipeline_error",
-                    stage="error",
-                    span_start=0,
-                    span_end=0,
-                    score=1.0,
-                    evidence=f"Pipeline failed: {type(exc).__name__}",
-                )],
+                findings=[
+                    Finding(
+                        category=self.name,
+                        subcategory="pipeline_error",
+                        stage="error",
+                        span_start=0,
+                        span_end=0,
+                        score=1.0,
+                        evidence=f"Pipeline failed: {type(exc).__name__}",
+                    )
+                ],
                 latency_ms=latency_ms,
             )
         latency_ms = (time.perf_counter() - start) * 1000
@@ -76,24 +78,24 @@ class BasePipeline(ABC):
         )
 
         if self._metrics:
-            self._metrics.record_pipeline(
-                self.name, action=action.value, latency_ms=latency_ms
-            )
+            self._metrics.record_pipeline(self.name, action=action.value, latency_ms=latency_ms)
 
         ctx.update_risk(risk_score)
 
         log_fn = _log.warning if 0.3 <= risk_score < 0.5 else _log.info
         log_fn(
             "pipeline %s: action=%s risk=%.2f findings=%d latency=%.1fms",
-            self.name, action.value, risk_score, len(findings), latency_ms,
+            self.name,
+            action.value,
+            risk_score,
+            len(findings),
+            latency_ms,
         )
 
         return result
 
     @abstractmethod
-    def _execute(
-        self, input_data: Any, context: ExecutionContext
-    ) -> list[Finding]:
+    def _execute(self, input_data: Any, context: ExecutionContext) -> list[Finding]:
         """Core pipeline logic. Return findings."""
         ...
 
