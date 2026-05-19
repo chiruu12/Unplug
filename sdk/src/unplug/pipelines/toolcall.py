@@ -8,7 +8,7 @@ from typing import Any
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext, ToolCall
 from unplug.core.stats import MetricsCollector
-from unplug.core.taint import TaintedText, TrustLevel
+from unplug.core.taint import TrustLevel
 from unplug.models import Action, Finding
 from unplug.pipelines.base import BasePipeline
 from unplug.scanners.base import BaseScanner

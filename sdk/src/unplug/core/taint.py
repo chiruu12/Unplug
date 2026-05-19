@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import time
 import uuid
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from unplug.models import Source
 
 
-class TrustLevel(str, Enum):
+class TrustLevel(StrEnum):
     TRUSTED = "trusted"
     USER = "user"
     RETRIEVED = "retrieved"

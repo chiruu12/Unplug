@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import re
-from typing import Generator
+from collections.abc import Generator
 
 from unplug.core.config import ScannerConfig
 from unplug.core.context import ExecutionContext
-from unplug.core.normalize import NormalizeResult, Normalizer
+from unplug.core.normalize import Normalizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
 from unplug.models import Finding
@@ -51,23 +51,25 @@ class InjectionScanner(RegexScanner):
         super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
         self._normalizer = Normalizer()
 
-    def _get_scan_text(self, text: TaintedText) -> str:
-        self._last_norm_result = self._normalizer.normalize(text.text)
-        return self._last_norm_result.text
+    def _scan(
+        self, text: TaintedText, context: ExecutionContext
+    ) -> Generator[Finding, None, None]:
+        norm_result = self._normalizer.normalize(text.text)
+        normalized = norm_result.text
 
-    def _make_finding(
-        self,
-        subcategory: str,
-        span_start: int,
-        span_end: int,
-        raw: str,
-        text: TaintedText,
-    ) -> Finding:
-        if hasattr(self, "_last_norm_result") and self._last_norm_result is not None:
-            span_start, span_end = self._last_norm_result.to_original_span(
-                span_start, span_end
-            )
-        return super()._make_finding(subcategory, span_start, span_end, raw, text)
-
-    def _make_evidence(self, subcategory: str) -> str:
-        return f"Matched pattern: {subcategory}"
+        for subcategory, pattern in self._patterns:
+            for match in pattern.finditer(normalized):
+                span_start, span_end = norm_result.to_original_span(
+                    match.start(), match.end()
+                )
+                score = self._compute_score(subcategory, text)
+                yield Finding(
+                    category=self.name,
+                    subcategory=subcategory,
+                    stage="regex",
+                    span_start=span_start,
+                    span_end=span_end,
+                    score=score,
+                    evidence=f"Matched pattern: {subcategory}",
+                    replacement=self._get_replacement(subcategory),
+                )

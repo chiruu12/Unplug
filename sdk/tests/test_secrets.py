@@ -3,7 +3,7 @@
 import os
 from unittest.mock import patch
 
-from unplug.core.secrets import SecretEntry, SecretsSanitizer, SecretsRegistry
+from unplug.core.secrets import SecretEntry, SecretsRegistry, SecretsSanitizer
 
 
 class TestSecretEntry:

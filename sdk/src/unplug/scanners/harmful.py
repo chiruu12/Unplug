@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from unplug.core.config import ScannerConfig
+from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel
 from unplug.scanners.base import RegexScanner
 
@@ -27,7 +28,11 @@ class HarmfulScanner(RegexScanner):
     name = "harmful"
     _patterns = _PATTERNS
 
-    def __init__(self, config=None, metrics=None):
+    def __init__(
+        self,
+        config: ScannerConfig | None = None,
+        metrics: MetricsCollector | None = None,
+    ) -> None:
         super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
 
     def _should_scan(self, text: TaintedText) -> bool:

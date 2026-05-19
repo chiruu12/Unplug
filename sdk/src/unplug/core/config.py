@@ -1,22 +1,24 @@
-"""Configuration system — replaces hardcoded thresholds with composable config objects."""
+"""Configuration system — composable config objects backed by Pydantic."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 
 
-@dataclass(frozen=True)
-class ThresholdConfig:
+class ThresholdConfig(BaseModel):
     """Action thresholds for deciding ALLOW/REVIEW/REDACT/BLOCK."""
+
+    model_config = {"frozen": True}
 
     block: float = 0.8
     redact: float = 0.5
     review: float = 0.3
 
 
-@dataclass(frozen=True)
-class ScannerConfig:
+class ScannerConfig(BaseModel):
     """Per-scanner configuration — passed to BaseScanner at construction."""
+
+    model_config = {"frozen": True}
 
     base_score: float = 0.85
     trust_boost: float = 0.10
@@ -24,26 +26,26 @@ class ScannerConfig:
     normalize: bool = False
 
 
-@dataclass(frozen=True)
-class PipelineConfig:
+class PipelineConfig(BaseModel):
     """Pipeline-level configuration."""
 
-    thresholds: ThresholdConfig = field(default_factory=ThresholdConfig)
+    model_config = {"frozen": True}
+
+    thresholds: ThresholdConfig = Field(default_factory=ThresholdConfig)
     fail_closed: bool = True
 
 
-@dataclass
-class GuardConfig:
+class GuardConfig(BaseModel):
     """Top-level configuration for the Guard."""
 
-    scanners: list[str] = field(
+    scanners: list[str] = Field(
         default_factory=lambda: ["injection", "destructive", "leakage", "harmful"]
     )
     mode: str = "local"
     server_url: str | None = None
     fail_closed: bool = True
-    pipeline: PipelineConfig = field(default_factory=PipelineConfig)
-    scanner_configs: dict[str, ScannerConfig] = field(default_factory=dict)
+    pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
+    scanner_configs: dict[str, ScannerConfig] = Field(default_factory=dict)
 
     def get_scanner_config(self, name: str) -> ScannerConfig:
         return self.scanner_configs.get(name, ScannerConfig())

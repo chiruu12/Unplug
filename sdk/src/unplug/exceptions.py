@@ -1,5 +1,7 @@
 """Unplug exceptions."""
 
+from __future__ import annotations
+
 
 class UnplugError(Exception):
     """Base exception for Unplug."""

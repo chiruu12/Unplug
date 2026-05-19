@@ -6,7 +6,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-from unplug.core.config import PipelineConfig, ThresholdConfig
+from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import Tagger, TaintedText, TrustLevel

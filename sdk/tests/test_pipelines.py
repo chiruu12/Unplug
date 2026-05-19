@@ -1,7 +1,7 @@
 """Tests for pipelines — input, output, tool call."""
 
 from unplug.core.context import ExecutionContext, ToolCall
-from unplug.core.secrets import SecretsSanitizer, SecretsRegistry
+from unplug.core.secrets import SecretsRegistry, SecretsSanitizer
 from unplug.core.taint import TaintedText, TrustLevel
 from unplug.models import Action, Source
 from unplug.pipelines.input import InputPipeline

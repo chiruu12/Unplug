@@ -1,11 +1,10 @@
 """Tests for core infrastructure — config, stats, models, registry, base classes."""
 
 import re
-from typing import Generator
 
-from unplug.core.config import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
+from unplug.core.config import GuardConfig, ScannerConfig, ThresholdConfig
 from unplug.core.context import ExecutionContext
-from unplug.core.models import ModelProvider, ModelRegistry, ModelSpec, NullModelProvider
+from unplug.core.models import ModelRegistry, ModelSpec, NullModelProvider
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel
 from unplug.models import Finding
@@ -256,8 +255,8 @@ class TestModelScanner:
         class TestModelBased(ModelScanner):
             name = "ml_test"
             def _scan(self, text, context):
-                result = self.model.predict(text.text)
-                return []  # just testing the wiring
+                self.model.predict(text.text)
+                return []
 
         scanner = TestModelBased()
         assert scanner.model is not None

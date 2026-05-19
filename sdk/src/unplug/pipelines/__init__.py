@@ -1,5 +1,7 @@
 """Enforcement pipelines: input, output, tool call."""
 
+from __future__ import annotations
+
 from unplug.pipelines.base import BasePipeline
 from unplug.pipelines.input import InputPipeline
 from unplug.pipelines.output import OutputPipeline

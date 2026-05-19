@@ -5,13 +5,14 @@ from __future__ import annotations
 import re
 import time
 from abc import ABC, abstractmethod
-from typing import Generator, Protocol, runtime_checkable
+from collections.abc import Generator
+from typing import Protocol, runtime_checkable
 
 from unplug.core.config import ScannerConfig
 from unplug.core.context import ExecutionContext
 from unplug.core.models import ModelProvider, ModelSpec, NullModelProvider
 from unplug.core.stats import MetricsCollector
-from unplug.core.taint import TaintedText, TrustLevel
+from unplug.core.taint import TaintedText
 from unplug.models import Finding
 
 
@@ -48,7 +49,18 @@ class BaseScanner(ABC):
             return []
 
         start = time.perf_counter()
-        findings = list(self._scan(text, context))
+        try:
+            findings = list(self._scan(text, context))
+        except Exception as exc:
+            findings = [Finding(
+                category=self.name,
+                subcategory="scanner_error",
+                stage="error",
+                span_start=0,
+                span_end=len(text.text),
+                score=1.0,
+                evidence=f"Scanner failed: {type(exc).__name__}",
+            )]
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         if self._metrics:

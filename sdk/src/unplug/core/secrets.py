@@ -7,9 +7,10 @@ import re
 
 from pydantic import BaseModel, Field
 
-
 _GENERIC_SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("generic_api_key", re.compile(r"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?[\w\-]{20,}")),
+    ("generic_api_key", re.compile(
+        r"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?[\w\-]{20,}",
+    )),
     ("aws_access_key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("github_token", re.compile(r"(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,}")),
     ("openai_key", re.compile(r"sk-[A-Za-z0-9]{32,}")),

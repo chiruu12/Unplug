@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 
 @dataclass(frozen=True)

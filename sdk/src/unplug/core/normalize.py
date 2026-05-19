@@ -102,8 +102,8 @@ _OVERRIDE_VERBS: dict[str, str] = {
     # German
     "ignorieren": "ignore", "vergessen": "forget", "umgehen": "bypass",
     "überschreiben": "override",
-    # Portuguese
-    "ignorar": "ignore", "esquecer": "forget", "contornar": "bypass",
+    # Portuguese (ignorar shared with Spanish)
+    "esquecer": "forget", "contornar": "bypass",
     "substituir": "override",
     # Italian
     "ignorare": "ignore", "dimenticare": "forget", "aggirare": "bypass",

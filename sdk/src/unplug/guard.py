@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from unplug.core.config import GuardConfig, PipelineConfig
+from unplug.core.config import GuardConfig
 from unplug.core.context import ExecutionContext, ToolCall
 from unplug.core.normalize import Normalizer
-from unplug.core.secrets import SecretsSanitizer, SecretsRegistry
+from unplug.core.secrets import SecretsRegistry, SecretsSanitizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
 from unplug.models import ScanRequest, ScanResult, Source
@@ -16,7 +16,7 @@ from unplug.scanners import ScannerRegistry
 
 
 class Guard:
-    """Scan untrusted text for prompt injection, destructive actions, leakage, and harmful output."""
+    """Entry point for Unplug — scans text, output, and tool calls."""
 
     _instance: Guard | None = None
 
@@ -31,12 +31,12 @@ class Guard:
         config: GuardConfig | None = None,
     ) -> None:
         cfg = config or GuardConfig()
+        overrides: dict = {"mode": mode, "fail_closed": fail_mode == "closed"}
         if scanners is not None:
-            cfg.scanners = scanners
-        cfg.mode = mode
+            overrides["scanners"] = scanners
         if server_url is not None:
-            cfg.server_url = server_url
-        cfg.fail_closed = fail_mode == "closed"
+            overrides["server_url"] = server_url
+        cfg = cfg.model_copy(update=overrides)
 
         self._config = cfg
         self._metrics = MetricsCollector()

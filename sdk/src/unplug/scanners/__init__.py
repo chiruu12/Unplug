@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
 
 from unplug.core.config import ScannerConfig
 from unplug.core.stats import MetricsCollector
-from unplug.scanners.base import BaseScanner, Scanner
-
+from unplug.scanners.base import BaseScanner
+from unplug.scanners.base import Scanner as Scanner
 
 _FACTORIES: dict[str, Callable[..., BaseScanner]] = {}
 

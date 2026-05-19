@@ -2,7 +2,7 @@
 
 from unplug import Guard, ScanResult, TaintedText, TrustLevel
 from unplug.core.secrets import SecretsRegistry
-from unplug.models import Action, Source
+from unplug.models import Source
 
 
 class TestBackwardCompatibility:

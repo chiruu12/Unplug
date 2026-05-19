@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class Source(str, Enum):
+class Source(StrEnum):
     USER = "user"
     RETRIEVED = "retrieved"
     TOOL_OUTPUT = "tool_output"
     SYSTEM = "system"
 
 
-class Action(str, Enum):
+class Action(StrEnum):
     ALLOW = "allow"
     REDACT = "redact"
     BLOCK = "block"
@@ -22,14 +22,14 @@ class Action(str, Enum):
 
 
 class Finding(BaseModel):
-    category: str = Field(description="Scanner that produced this: injection, destructive, leakage, harmful")
-    subcategory: str = Field(description="Specific threat: role_override, sql_drop, api_key, etc.")
+    category: str = Field(description="Scanner category")
+    subcategory: str = Field(description="Specific threat type")
     stage: str = Field(description="Pipeline stage: regex, classifier, llm_judge")
-    span_start: int = Field(description="Start character offset in original text")
-    span_end: int = Field(description="End character offset in original text")
+    span_start: int = Field(description="Start offset in original text")
+    span_end: int = Field(description="End offset in original text")
     score: float = Field(ge=0.0, le=1.0, description="Confidence score")
     evidence: str = Field(description="Human-readable explanation")
-    replacement: str | None = Field(default=None, description="Suggested replacement text")
+    replacement: str | None = Field(default=None)
 
 
 class ScanResult(BaseModel):
@@ -37,16 +37,16 @@ class ScanResult(BaseModel):
     action: Action = Field(description="Recommended action")
     risk_score: float = Field(ge=0.0, le=1.0, description="Overall risk score")
     findings: list[Finding] = Field(default_factory=list)
-    redacted_text: str | None = Field(default=None, description="Text with malicious spans redacted")
+    redacted_text: str | None = Field(default=None)
     latency_ms: float = Field(description="Total scan time in milliseconds")
-    stages_run: list[str] = Field(default_factory=list, description="Pipeline stages that ran")
+    stages_run: list[str] = Field(default_factory=list)
 
 
 class ScanRequest(BaseModel):
     text: str = Field(description="Text to scan")
-    source: Source = Field(default=Source.USER, description="Where the text came from")
-    scanners: list[str] | None = Field(default=None, description="Specific scanners to run (default: all)")
-    redact: bool = Field(default=True, description="Whether to return redacted text")
+    source: Source = Field(default=Source.USER)
+    scanners: list[str] | None = Field(default=None)
+    redact: bool = Field(default=True)
 
 
 class BatchScanRequest(BaseModel):
