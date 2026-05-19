@@ -38,7 +38,26 @@ class BasePipeline(ABC):
         ctx = context or ExecutionContext()
         start = time.perf_counter()
 
-        findings = list(self._execute(input_data, ctx))
+        try:
+            findings = list(self._execute(input_data, ctx))
+        except Exception as exc:
+            _log.error("pipeline %s failed: %s", self.name, exc)
+            latency_ms = (time.perf_counter() - start) * 1000
+            return ScanResult(
+                safe=False,
+                action=Action.BLOCK,
+                risk_score=1.0,
+                findings=[Finding(
+                    category=self.name,
+                    subcategory="pipeline_error",
+                    stage="error",
+                    span_start=0,
+                    span_end=0,
+                    score=1.0,
+                    evidence=f"Pipeline failed: {type(exc).__name__}",
+                )],
+                latency_ms=latency_ms,
+            )
         latency_ms = (time.perf_counter() - start) * 1000
 
         risk_score = max((f.score for f in findings), default=0.0)

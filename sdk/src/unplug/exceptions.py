@@ -17,3 +17,15 @@ class ServerError(UnplugError):
 
 class ConfigError(UnplugError):
     """Invalid configuration."""
+
+
+class ConfigLoadError(ConfigError):
+    """Failed to load config from file or environment."""
+
+
+class ScannerError(ScanError):
+    """A scanner failed during execution."""
+
+
+class PipelineError(ScanError):
+    """A pipeline failed during execution."""

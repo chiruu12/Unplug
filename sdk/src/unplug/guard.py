@@ -9,13 +9,31 @@ from unplug.core.normalize import Normalizer
 from unplug.core.secrets import SecretsRegistry, SecretsSanitizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
-from unplug.models import ScanRequest, ScanResult, Source
+from unplug.models import Action, Finding, ScanRequest, ScanResult, Source
 from unplug.pipelines.input import InputPipeline
 from unplug.pipelines.output import OutputPipeline
 from unplug.pipelines.toolcall import ToolCallPipeline
 from unplug.scanners import ScannerRegistry
 
 _log = get_logger("guard")
+
+
+def _fail_closed(exc: Exception) -> ScanResult:
+    return ScanResult(
+        safe=False,
+        action=Action.BLOCK,
+        risk_score=1.0,
+        findings=[Finding(
+            category="guard",
+            subcategory="guard_error",
+            stage="error",
+            span_start=0,
+            span_end=0,
+            score=1.0,
+            evidence=f"Guard failed: {type(exc).__name__}",
+        )],
+        latency_ms=0.0,
+    )
 
 
 class Guard:
@@ -93,13 +111,21 @@ class Guard:
         """Scan text and return findings with optional redaction."""
         if isinstance(source, str):
             source = Source(source)
-        with correlation_scope():
-            return self._input_pipeline.run(text, source=source, context=self._context)
+        try:
+            with correlation_scope():
+                return self._input_pipeline.run(text, source=source, context=self._context)
+        except Exception as exc:
+            _log.error("guard.scan failed: %s", exc)
+            return _fail_closed(exc)
 
     def scan_output(self, text: str | TaintedText) -> ScanResult:
         """Scan agent output for secrets and data leakage."""
-        with correlation_scope():
-            return self._output_pipeline.run(text, context=self._context)
+        try:
+            with correlation_scope():
+                return self._output_pipeline.run(text, context=self._context)
+        except Exception as exc:
+            _log.error("guard.scan_output failed: %s", exc)
+            return _fail_closed(exc)
 
     def check_tool_call(
         self,
@@ -114,8 +140,12 @@ class Guard:
             arguments=arguments,
             taint_sources=taint_sources or [],
         )
-        with correlation_scope():
-            return self._tool_pipeline.run(tc, context=self._context)
+        try:
+            with correlation_scope():
+                return self._tool_pipeline.run(tc, context=self._context)
+        except Exception as exc:
+            _log.error("guard.check_tool_call failed: %s", exc)
+            return _fail_closed(exc)
 
     def scan_request(self, request: ScanRequest) -> ScanResult:
         """Scan from a ScanRequest object."""
