@@ -10,10 +10,13 @@ from typing import Protocol, runtime_checkable
 
 from unplug.core.config import ScannerConfig
 from unplug.core.context import ExecutionContext
+from unplug.core.logging import get_logger
 from unplug.core.models import ModelProvider, ModelSpec, NullModelProvider
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
 from unplug.models import Finding
+
+_log = get_logger("scanners")
 
 
 @runtime_checkable
@@ -52,6 +55,7 @@ class BaseScanner(ABC):
         try:
             findings = list(self._scan(text, context))
         except Exception as exc:
+            _log.error("scanner %s failed: %s", self.name, exc)
             findings = [Finding(
                 category=self.name,
                 subcategory="scanner_error",
@@ -62,6 +66,10 @@ class BaseScanner(ABC):
                 evidence=f"Scanner failed: {type(exc).__name__}",
             )]
         elapsed_ms = (time.perf_counter() - start) * 1000
+        _log.debug(
+            "scanner %s: %d findings in %.1fms",
+            self.name, len(findings), elapsed_ms,
+        )
 
         if self._metrics:
             self._metrics.record_scanner(

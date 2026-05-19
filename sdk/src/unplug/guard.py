@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unplug.core.config import GuardConfig
 from unplug.core.context import ExecutionContext, ToolCall
+from unplug.core.logging import correlation_scope, get_logger
 from unplug.core.normalize import Normalizer
 from unplug.core.secrets import SecretsRegistry, SecretsSanitizer
 from unplug.core.stats import MetricsCollector
@@ -13,6 +14,8 @@ from unplug.pipelines.input import InputPipeline
 from unplug.pipelines.output import OutputPipeline
 from unplug.pipelines.toolcall import ToolCallPipeline
 from unplug.scanners import ScannerRegistry
+
+_log = get_logger("guard")
 
 
 class Guard:
@@ -90,11 +93,13 @@ class Guard:
         """Scan text and return findings with optional redaction."""
         if isinstance(source, str):
             source = Source(source)
-        return self._input_pipeline.run(text, source=source, context=self._context)
+        with correlation_scope():
+            return self._input_pipeline.run(text, source=source, context=self._context)
 
     def scan_output(self, text: str | TaintedText) -> ScanResult:
         """Scan agent output for secrets and data leakage."""
-        return self._output_pipeline.run(text, context=self._context)
+        with correlation_scope():
+            return self._output_pipeline.run(text, context=self._context)
 
     def check_tool_call(
         self,
@@ -109,7 +114,8 @@ class Guard:
             arguments=arguments,
             taint_sources=taint_sources or [],
         )
-        return self._tool_pipeline.run(tc, context=self._context)
+        with correlation_scope():
+            return self._tool_pipeline.run(tc, context=self._context)
 
     def scan_request(self, request: ScanRequest) -> ScanResult:
         """Scan from a ScanRequest object."""

@@ -8,9 +8,12 @@ from typing import Any
 
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
+from unplug.core.logging import get_logger
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import Tagger, TaintedText, TrustLevel
 from unplug.models import Action, Finding, ScanResult
+
+_log = get_logger("pipelines")
 
 
 class BasePipeline(ABC):
@@ -59,6 +62,12 @@ class BasePipeline(ABC):
             )
 
         ctx.update_risk(risk_score)
+
+        log_fn = _log.warning if 0.3 <= risk_score < 0.5 else _log.info
+        log_fn(
+            "pipeline %s: action=%s risk=%.2f findings=%d latency=%.1fms",
+            self.name, action.value, risk_score, len(findings), latency_ms,
+        )
 
         return result
 
