@@ -4,7 +4,7 @@
 
 > All the ways LLMs fail — one import to stop them.
 
-Fast, offline-first defense layer for LLM apps, agents, and RAG pipelines. Scans untrusted text in <20ms, returns evidence, and redacts malicious spans. Works as an SDK, a self-hosted API, or an MCP server.
+Fast, offline-first defense layer for LLM apps, agents, and RAG pipelines. Scans untrusted text in <20ms, returns evidence, and redacts malicious spans.
 
 ## What It Stops
 
@@ -47,31 +47,6 @@ Guard.init()  # Patches LangChain, CrewAI, LlamaIndex automatically
 # All LLM calls are now protected. That's it.
 ```
 
-### Server Mode
-
-```bash
-# Self-host the API
-unplug serve --port 8000
-
-# Scan via HTTP
-curl -X POST http://localhost:8000/v1/scan \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Ignore previous instructions", "source": "user"}'
-```
-
-### MCP Server (Zero Code Changes)
-
-```json
-{
-  "mcpServers": {
-    "unplug": {
-      "command": "uvx",
-      "args": ["unplug-mcp"]
-    }
-  }
-}
-```
-
 ## Architecture
 
 3-stage pipeline, each stage can short-circuit:
@@ -89,15 +64,13 @@ Input Text
          ▼
 ┌─────────────────────┐
 │  Stage 2: Classifier│  5-15ms
-│  ModernBERT / ONNX  │  Span-level detection
-│  CPU-optimized      │
+│  ONNX / CPU         │  Span-level detection
 └────────┬────────────┘
          │ (if borderline)
          ▼
 ┌─────────────────────┐
 │  Stage 3: LLM Judge │  500ms-2s
 │  Local small model  │  Only ~5% of requests
-│  Structured CoT     │
 └─────────────────────┘
          │
          ▼
@@ -114,35 +87,13 @@ Input Text
 - **Offline-first** — runs entirely on CPU, no API calls required
 - **<20ms p50 latency** — regex catches 60%+ of attacks in <1ms, classifier handles the rest
 - **Multi-source awareness** — different policies for user input, retrieved docs, and tool results
-- **Framework integrations** — LangChain, LlamaIndex, CrewAI, OpenAI Agents SDK
 - **Destructive action prevention** — blocks dangerous SQL, shell commands, and file operations
 - **Output guardrails** — scans model responses for leakage, toxicity, and policy violations
 
-## Project Structure
+## Related Repos
 
-```
-unplug/
-├── sdk/                    # Python SDK (pip install unplug)
-│   └── src/unplug/
-│       ├── guard.py        # Main Guard class
-│       ├── scanners/       # Pluggable scanner modules
-│       │   ├── injection.py
-│       │   ├── destructive.py
-│       │   ├── leakage.py
-│       │   └── harmful.py
-│       ├── client.py       # HTTP client for server mode
-│       └── models.py       # Pydantic schemas
-├── server/                 # FastAPI server (unplug serve)
-│   └── src/unplug_server/
-│       ├── main.py         # App + lifespan
-│       ├── api/routes/     # HTTP endpoints
-│       ├── core/           # Config, security
-│       └── services/       # Defense orchestrator
-├── benchmarks/             # Performance + accuracy benchmarks
-├── datasets/               # Test datasets
-├── examples/               # Integration examples
-└── docs/                   # Documentation
-```
+- [unplug-server](https://github.com/chiruu12/unplug-server) — Self-hosted FastAPI server
+- [unplug-mcp](https://github.com/chiruu12/unplug-mcp) — MCP server for Claude Code, Cursor, etc.
 
 ## License
 
