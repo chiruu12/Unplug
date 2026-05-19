@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -49,3 +52,13 @@ class GuardConfig(BaseModel):
 
     def get_scanner_config(self, name: str) -> ScannerConfig:
         return self.scanner_configs.get(name, ScannerConfig())
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> GuardConfig:
+        from unplug.core.config_loader import load
+        return load(file_path=path)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> GuardConfig:
+        from unplug.core.config_loader import build_config
+        return build_config(data)

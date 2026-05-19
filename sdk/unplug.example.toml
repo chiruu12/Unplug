@@ -1,0 +1,19 @@
+# Unplug configuration — copy to unplug.toml and customize
+
+[guard]
+scanners = ["injection", "destructive", "leakage", "harmful"]
+mode = "local"
+fail_closed = true
+
+[pipeline.thresholds]
+block = 0.8
+redact = 0.5
+review = 0.3
+
+# Per-scanner overrides
+[scanners.injection]
+base_score = 0.85
+normalize = true
+
+[scanners.destructive]
+base_score = 0.90

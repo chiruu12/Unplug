@@ -1,0 +1,168 @@
+"""Tests for core/config_loader.py — TOML loading, env overrides, merging."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from unplug.core.config import GuardConfig
+from unplug.core.config_loader import (
+    _coerce,
+    _merge,
+    build_config,
+    load,
+    load_from_env,
+    load_from_file,
+)
+
+
+@pytest.fixture
+def toml_file(tmp_path: Path) -> Path:
+    p = tmp_path / "unplug.toml"
+    p.write_text("""\
+[guard]
+scanners = ["injection", "destructive"]
+mode = "local"
+fail_closed = true
+
+[pipeline.thresholds]
+block = 0.9
+redact = 0.6
+review = 0.2
+
+[scanners.injection]
+base_score = 0.90
+normalize = true
+""")
+    return p
+
+
+class TestLoadFromFile:
+    def test_loads_toml(self, toml_file: Path):
+        data = load_from_file(toml_file)
+        assert data["guard"]["scanners"] == ["injection", "destructive"]
+        assert data["pipeline"]["thresholds"]["block"] == 0.9
+
+    def test_missing_file_raises(self):
+        with pytest.raises(FileNotFoundError):
+            load_from_file("/nonexistent/path.toml")
+
+
+class TestLoadFromEnv:
+    def test_simple_key(self):
+        with patch.dict(os.environ, {"UNPLUG_MODE": "server"}):
+            result = load_from_env("UNPLUG_")
+        assert result["mode"] == "server"
+
+    def test_nested_key(self):
+        with patch.dict(os.environ, {"UNPLUG_PIPELINE__THRESHOLDS__BLOCK": "0.95"}):
+            result = load_from_env("UNPLUG_")
+        assert result["pipeline"]["thresholds"]["block"] == 0.95
+
+    def test_comma_separated_list(self):
+        with patch.dict(os.environ, {"UNPLUG_SCANNERS": "injection,destructive"}):
+            result = load_from_env("UNPLUG_")
+        assert result["scanners"] == ["injection", "destructive"]
+
+    def test_ignores_other_vars(self):
+        with patch.dict(os.environ, {"OTHER_VAR": "value"}, clear=False):
+            result = load_from_env("UNPLUG_")
+        assert "other_var" not in result
+
+
+class TestCoerce:
+    def test_bool_true(self):
+        assert _coerce("true") is True
+        assert _coerce("yes") is True
+        assert _coerce("1") is True
+
+    def test_bool_false(self):
+        assert _coerce("false") is False
+        assert _coerce("no") is False
+        assert _coerce("0") is False
+
+    def test_int(self):
+        assert _coerce("42") == 42
+
+    def test_float(self):
+        assert _coerce("0.85") == 0.85
+
+    def test_string(self):
+        assert _coerce("local") == "local"
+
+
+class TestMerge:
+    def test_flat_merge(self):
+        assert _merge({"a": 1}, {"b": 2}) == {"a": 1, "b": 2}
+
+    def test_override(self):
+        assert _merge({"a": 1}, {"a": 2}) == {"a": 2}
+
+    def test_deep_merge(self):
+        base = {"x": {"a": 1, "b": 2}}
+        override = {"x": {"b": 3, "c": 4}}
+        assert _merge(base, override) == {"x": {"a": 1, "b": 3, "c": 4}}
+
+
+class TestBuildConfig:
+    def test_from_guard_section(self):
+        data = {
+            "guard": {"scanners": ["injection"], "mode": "server"},
+        }
+        cfg = build_config(data)
+        assert cfg.scanners == ["injection"]
+        assert cfg.mode == "server"
+
+    def test_with_thresholds(self):
+        data = {
+            "pipeline": {"thresholds": {"block": 0.9, "redact": 0.6}},
+        }
+        cfg = build_config(data)
+        assert cfg.pipeline.thresholds.block == 0.9
+        assert cfg.pipeline.thresholds.redact == 0.6
+
+    def test_with_scanner_configs(self):
+        data = {
+            "scanners": {
+                "injection": {"base_score": 0.9, "normalize": True},
+            },
+        }
+        cfg = build_config(data)
+        assert "injection" in cfg.scanner_configs
+        assert cfg.scanner_configs["injection"].base_score == 0.9
+
+
+class TestLoad:
+    def test_from_file(self, toml_file: Path):
+        cfg = load(file_path=toml_file)
+        assert cfg.scanners == ["injection", "destructive"]
+        assert cfg.pipeline.thresholds.block == 0.9
+
+    def test_env_override(self, toml_file: Path):
+        with patch.dict(os.environ, {"UNPLUG_GUARD__MODE": "server"}):
+            cfg = load(file_path=toml_file)
+        assert cfg.mode == "server"
+
+    def test_no_file_defaults(self):
+        cfg = load()
+        assert cfg == GuardConfig()
+
+    def test_env_only(self):
+        with patch.dict(os.environ, {"UNPLUG_GUARD__FAIL_CLOSED": "false"}):
+            cfg = load()
+        assert cfg.fail_closed is False
+
+
+class TestGuardConfigFactory:
+    def test_from_file(self, toml_file: Path):
+        cfg = GuardConfig.from_file(toml_file)
+        assert cfg.scanners == ["injection", "destructive"]
+
+    def test_from_dict(self):
+        cfg = GuardConfig.from_dict({
+            "guard": {"scanners": ["harmful"]},
+        })
+        assert cfg.scanners == ["harmful"]
