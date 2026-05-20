@@ -97,17 +97,28 @@ except Exception as exc:
 - No "based on analysis", "after discussing", "AI-assisted" in any public output
 
 ## Current State (2026-05-20)
-- Branch: v2-enforcement-layer (16 commits ahead of main, not merged)
+- Branch: v2-enforcement-layer (17 commits ahead of main, not merged)
 - 317 tests passing, all lint clean
 - SDK refactor complete: Pydantic config, fail-closed, logging, TOML config
 - Base classes added: JudgeProvider (BYOLLM), ContentProvider, LimitConfig
 - Evaluation framework ready in benchmarks/
 - Baseline eval on built-in samples: 92.3% F1, 0% FPR
 
-## What's Next (read .context/design-next-phase.md for details)
+## Research Context (read before making design decisions)
+All verified research lives in `.context/research/`:
+- `owasp-llm-top10.md` — OWASP coverage gaps mapped to our scanners
+- `competitor-scanners.md` — LLM Guard 35 scanners vs our 6, what's worth adding
+- `server-architecture-patterns.md` — auth/caching/batching from vLLM, TGI, Ollama
+- `models-and-datasets.md` — classifier options + dataset sizes/licenses
+- `openai-privacy-filter.md` — 50M-param PII model, integration plan
+- `api-contract.md` — v1/v2 endpoint specs
+- `adoption-and-distribution.md` — distribution strategy
+Also read: `.context/design-next-phase.md` (synthesized design doc with all decisions)
+
+## What's Next
 1. Merge v2-enforcement-layer to main
 2. Download real datasets (neuralchemy 22K, microsoft 208K) and run evaluation
-3. Expand regex patterns based on evaluation gaps
-4. Server hardening (unplug-server repo): middleware, auth, Docker
-5. Wire ONNX classifier when regex isn't enough
+3. Wire LimitConfig + JudgeProvider into Guard (base classes exist, need integration)
+4. Expand regex patterns based on evaluation gaps
+5. Server hardening (unplug-server repo): middleware, auth, Docker
 6. MCP server implementation
