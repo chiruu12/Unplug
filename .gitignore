@@ -208,6 +208,7 @@ tempCodeRunnerFile.py
 
 # Editor configs (per-developer)
 .cursor/
+.claude/
 
 # Model weights (large files, local only)
 models/weights/
