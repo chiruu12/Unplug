@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from unplug.core.config import GuardConfig
+from unplug.api.enums import Action, Source
+from unplug.api.types import Finding, ScanRequest, ScanResult
+from unplug.config.guard import GuardConfig
 from unplug.core.context import ExecutionContext, ToolCall
 from unplug.core.judge import JudgeProvider
 from unplug.core.limits import LimitConfig, LimitViolation
@@ -13,11 +15,10 @@ from unplug.core.normalize import Normalizer
 from unplug.core.secrets import SecretsRegistry, SecretsSanitizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
-from unplug.models import Action, Finding, ScanRequest, ScanResult, Source
 from unplug.pipelines.input import InputPipeline
 from unplug.pipelines.output import OutputPipeline
 from unplug.pipelines.toolcall import ToolCallPipeline
-from unplug.scanners import ScannerRegistry
+from unplug.safeguards import ScannerRegistry
 
 _log = get_logger("guard")
 
@@ -144,6 +145,10 @@ class Guard:
     @property
     def scanner_registry(self) -> ScannerRegistry:
         return self._registry
+
+    @property
+    def config(self) -> GuardConfig:
+        return self._config
 
     def scan(self, text: str, source: Source | str = Source.USER) -> ScanResult:
         """Scan text and return findings with optional redaction."""

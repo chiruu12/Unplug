@@ -14,7 +14,7 @@ from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel, trust_level_from_source
 from unplug.models import Finding, Source
 from unplug.pipelines.base import BasePipeline
-from unplug.scanners.base import BaseScanner
+from unplug.safeguards.base import BaseScanner
 
 _log = get_logger("pipelines.input")
 

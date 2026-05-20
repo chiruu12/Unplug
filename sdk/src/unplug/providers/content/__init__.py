@@ -1,4 +1,4 @@
-"""Re-export content protocol from providers (backward compatibility)."""
+"""Content scraping providers."""
 
 from __future__ import annotations
 

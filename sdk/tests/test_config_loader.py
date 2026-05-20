@@ -179,3 +179,12 @@ blocked_tools = ["danger"]
         cfg = load(file_path=p)
         assert cfg.limits.max_input_chars == 100
         assert cfg.limits.blocked_tools == ["danger"]
+
+    def test_messages_from_toml(self, tmp_path: Path) -> None:
+        p = tmp_path / "unplug.toml"
+        p.write_text("""\
+[messages]
+blocked_template = "Custom block {category}"
+""")
+        cfg = load(file_path=p)
+        assert "Custom block" in cfg.messages.blocked_template

@@ -11,7 +11,7 @@ from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TrustLevel
 from unplug.models import Action, Finding
 from unplug.pipelines.base import BasePipeline
-from unplug.scanners.base import BaseScanner
+from unplug.safeguards.base import BaseScanner
 
 
 class ToolCallPipeline(BasePipeline):
