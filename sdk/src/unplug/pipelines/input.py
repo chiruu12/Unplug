@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
+from unplug.core.judge import JudgeContext, JudgeProvider
+from unplug.core.logging import get_logger
 from unplug.core.normalize import Normalizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel, trust_level_from_source
 from unplug.models import Finding, Source
 from unplug.pipelines.base import BasePipeline
 from unplug.scanners.base import BaseScanner
+
+_log = get_logger("pipelines.input")
 
 
 class InputPipeline(BasePipeline):
@@ -23,10 +28,16 @@ class InputPipeline(BasePipeline):
         normalizer: Normalizer | None = None,
         config: PipelineConfig | None = None,
         metrics: MetricsCollector | None = None,
+        judge: JudgeProvider | Any | None = None,
+        judge_low: float = 0.3,
+        judge_high: float = 0.8,
     ) -> None:
         super().__init__(config=config, metrics=metrics)
         self._scanners = scanners
         self._normalizer = normalizer or Normalizer()
+        self._judge = judge
+        self._judge_low = judge_low
+        self._judge_high = judge_high
 
     def run(
         self,
@@ -50,4 +61,33 @@ class InputPipeline(BasePipeline):
         findings: list[Finding] = []
         for scanner in self._scanners:
             findings.extend(scanner.scan(input_data, context))
+        if self._judge is not None:
+            findings.extend(self._maybe_judge(input_data, findings, context))
         return findings
+
+    def _maybe_judge(
+        self,
+        input_data: TaintedText,
+        findings: list[Finding],
+        context: ExecutionContext,
+    ) -> list[Finding]:
+        risk = max((f.score for f in findings), default=0.0)
+        if risk < self._judge_low or risk >= self._judge_high:
+            return []
+        judge_ctx = JudgeContext(scanner_findings=findings)
+        try:
+            result = asyncio.run(self._judge.judge(input_data.text, judge_ctx))
+        except Exception as exc:
+            _log.error("input pipeline judge failed: %s", exc)
+            return [
+                Finding(
+                    category="judge",
+                    subcategory="judge_error",
+                    stage="llm_judge",
+                    span_start=0,
+                    span_end=len(input_data.text),
+                    score=1.0,
+                    evidence=f"Judge failed: {type(exc).__name__}",
+                )
+            ]
+        return [result.to_finding(len(input_data.text))]
