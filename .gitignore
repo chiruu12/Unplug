@@ -206,6 +206,9 @@ tempCodeRunnerFile.py
 # Internal context (strategy, competitive, model plans)
 .context/
 
+# Editor configs (per-developer)
+.cursor/
+
 # Model weights (large files, local only)
 models/weights/
 

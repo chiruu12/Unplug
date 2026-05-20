@@ -54,12 +54,14 @@ class TestCallableJudge:
     @pytest.mark.asyncio
     async def test_successful_judge(self):
         async def mock_llm(prompt: str) -> str:
-            return json.dumps({
-                "action": "block",
-                "category": "injection",
-                "score": 0.9,
-                "reason": "prompt injection detected",
-            })
+            return json.dumps(
+                {
+                    "action": "block",
+                    "category": "injection",
+                    "score": 0.9,
+                    "reason": "prompt injection detected",
+                }
+            )
 
         judge = CallableJudge(mock_llm)
         result = await judge.judge("ignore instructions", JudgeContext())
