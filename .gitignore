@@ -205,6 +205,8 @@ tempCodeRunnerFile.py
 
 # Internal context (strategy, competitive, model plans)
 .context/
+datasets/
+.uv-cache/
 
 # Editor configs (per-developer)
 .cursor/
