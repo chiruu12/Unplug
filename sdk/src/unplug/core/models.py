@@ -5,20 +5,22 @@ from __future__ import annotations
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Generator
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Self
+
+from pydantic import BaseModel, Field
 
 
-@dataclass(frozen=True)
-class ModelSpec:
+class ModelSpec(BaseModel):
     """Describes a model to load."""
+
+    model_config = {"frozen": True}
 
     name: str
     version: str = "latest"
     backend: str = "onnx"
     path: str | None = None
     repo_id: str | None = None
-    config: dict = field(default_factory=dict)
+    config: dict = Field(default_factory=dict)
 
 
 class ModelProvider(ABC):
@@ -60,11 +62,11 @@ class ModelProvider(ABC):
         for item in batch:
             yield self.predict(item)
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self.load()
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *exc: object) -> None:
         self.unload()
 
 

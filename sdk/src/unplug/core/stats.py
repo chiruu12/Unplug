@@ -5,11 +5,11 @@ from __future__ import annotations
 import threading
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 
-@dataclass
-class ScannerStats:
+class ScannerStats(BaseModel):
     """Per-scanner statistics."""
 
     scans: int = 0
@@ -33,8 +33,7 @@ class ScannerStats:
         }
 
 
-@dataclass
-class PipelineStats:
+class PipelineStats(BaseModel):
     """Per-pipeline statistics."""
 
     runs: int = 0
@@ -114,23 +113,25 @@ class MetricsCollector:
             self._start_time = time.monotonic()
 
 
-def timed_scan(name: str, collector: MetricsCollector | None = None):
-    """Decorator/context-manager that records scanner latency + hit count."""
+class _Timer:
+    def __init__(self, name: str, collector: MetricsCollector | None) -> None:
+        self._name = name
+        self._collector = collector
+        self._start = 0.0
+        self.findings_count = 0
 
-    class _Timer:
-        def __init__(self) -> None:
-            self._start = 0.0
-            self.findings_count = 0
+    def __enter__(self) -> _Timer:
+        self._start = time.perf_counter()
+        return self
 
-        def __enter__(self) -> _Timer:
-            self._start = time.perf_counter()
-            return self
+    def __exit__(self, *exc: object) -> None:
+        elapsed = (time.perf_counter() - self._start) * 1000
+        if self._collector is not None:
+            self._collector.record_scanner(
+                self._name, findings_count=self.findings_count, latency_ms=elapsed
+            )
 
-        def __exit__(self, *exc) -> None:
-            elapsed = (time.perf_counter() - self._start) * 1000
-            if collector is not None:
-                collector.record_scanner(
-                    name, findings_count=self.findings_count, latency_ms=elapsed
-                )
 
-    return _Timer()
+def timed_scan(name: str, collector: MetricsCollector | None = None) -> _Timer:
+    """Context manager that records scanner latency + hit count."""
+    return _Timer(name, collector)

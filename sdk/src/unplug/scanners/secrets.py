@@ -6,6 +6,7 @@ from collections.abc import Generator
 
 from unplug.core.config import ScannerConfig
 from unplug.core.context import ExecutionContext
+from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
 from unplug.models import Finding
 from unplug.scanners.base import BaseScanner
@@ -16,7 +17,11 @@ _DEFAULT_CONFIG = ScannerConfig(base_score=0.99)
 class SecretsScanner(BaseScanner):
     name = "secrets"
 
-    def __init__(self, config=None, metrics=None):
+    def __init__(
+        self,
+        config: ScannerConfig | None = None,
+        metrics: MetricsCollector | None = None,
+    ) -> None:
         super().__init__(config=config or _DEFAULT_CONFIG, metrics=metrics)
 
     def _scan(self, text: TaintedText, context: ExecutionContext) -> Generator[Finding, None, None]:

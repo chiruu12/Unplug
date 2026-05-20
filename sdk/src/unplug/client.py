@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Self
+
 import httpx
 
 from unplug.models import BatchScanRequest, ScanRequest, ScanResult
@@ -36,8 +38,8 @@ class UnplugClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         self.close()
