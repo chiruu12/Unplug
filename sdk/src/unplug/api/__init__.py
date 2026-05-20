@@ -1,8 +1,9 @@
-"""Shared schemas — re-exported from unplug.api for backward compatibility."""
+"""Public API types for SDK and server."""
 
 from __future__ import annotations
 
 from unplug.api.enums import Action, Source
+from unplug.api.messages import BlockedContent, ContentOutcome, SafeContent
 from unplug.api.types import (
     BatchScanRequest,
     Finding,
@@ -14,8 +15,11 @@ from unplug.api.types import (
 __all__ = [
     "Action",
     "BatchScanRequest",
+    "BlockedContent",
+    "ContentOutcome",
     "Finding",
     "HealthResponse",
+    "SafeContent",
     "ScanRequest",
     "ScanResult",
     "Source",
