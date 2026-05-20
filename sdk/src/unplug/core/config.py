@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from unplug.core.limits import LimitConfig
+
 
 class ThresholdConfig(BaseModel):
     """Action thresholds for deciding ALLOW/REVIEW/REDACT/BLOCK."""
@@ -49,6 +51,10 @@ class GuardConfig(BaseModel):
     fail_closed: bool = True
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     scanner_configs: dict[str, ScannerConfig] = Field(default_factory=dict)
+    limits: LimitConfig = Field(default_factory=LimitConfig)
+    judge_enabled: bool = False
+    judge_low: float = 0.3
+    judge_high: float = 0.8
 
     def get_scanner_config(self, name: str) -> ScannerConfig:
         return self.scanner_configs.get(name, ScannerConfig())

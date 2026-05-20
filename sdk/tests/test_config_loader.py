@@ -168,3 +168,14 @@ class TestGuardConfigFactory:
             }
         )
         assert cfg.scanners == ["harmful"]
+
+    def test_limits_from_toml(self, tmp_path: Path) -> None:
+        p = tmp_path / "unplug.toml"
+        p.write_text("""\
+[limits]
+max_input_chars = 100
+blocked_tools = ["danger"]
+""")
+        cfg = load(file_path=p)
+        assert cfg.limits.max_input_chars == 100
+        assert cfg.limits.blocked_tools == ["danger"]

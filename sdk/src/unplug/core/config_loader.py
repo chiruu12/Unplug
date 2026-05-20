@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from unplug.core.config import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
+from unplug.core.limits import LimitConfig
 
 
 def load_from_file(path: str | Path) -> dict[str, Any]:
@@ -87,6 +88,12 @@ def _build_pipeline(data: dict[str, Any]) -> PipelineConfig:
     return PipelineConfig(**kwargs)
 
 
+def _build_limits(data: dict[str, Any]) -> LimitConfig:
+    return LimitConfig(
+        **{k: v for k, v in data.items() if k in LimitConfig.model_fields}
+    )
+
+
 def _build_scanner_configs(data: dict[str, Any]) -> dict[str, ScannerConfig]:
     return {
         name: ScannerConfig(**{k: v for k, v in cfg.items() if k in ScannerConfig.model_fields})
@@ -122,6 +129,17 @@ def build_config(data: dict[str, Any]) -> GuardConfig:
             scanner_data = {}
     if scanner_data:
         kwargs["scanner_configs"] = _build_scanner_configs(scanner_data)
+
+    limits_data = guard_data.get("limits", data.get("limits", {}))
+    if limits_data:
+        kwargs["limits"] = _build_limits(limits_data)
+
+    if "judge_enabled" in guard_data:
+        kwargs["judge_enabled"] = guard_data["judge_enabled"]
+    if "judge_low" in guard_data:
+        kwargs["judge_low"] = float(guard_data["judge_low"])
+    if "judge_high" in guard_data:
+        kwargs["judge_high"] = float(guard_data["judge_high"])
 
     return GuardConfig(**kwargs)
 

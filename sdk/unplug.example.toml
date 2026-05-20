@@ -4,6 +4,12 @@
 scanners = ["injection", "destructive", "leakage", "harmful"]
 mode = "local"
 fail_closed = true
+judge_enabled = false
+
+[limits]
+max_input_chars = 50000
+max_tool_calls_per_session = 100
+blocked_tools = []
 
 [pipeline.thresholds]
 block = 0.8

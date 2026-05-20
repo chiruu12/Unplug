@@ -33,6 +33,19 @@ class LimitConfig(BaseModel):
             )
         return None
 
+    def check_tool_call_count(self, count: int) -> LimitViolation | None:
+        if count > self.max_tool_calls_per_session:
+            return LimitViolation(
+                kind="tool_calls_exceeded",
+                limit=self.max_tool_calls_per_session,
+                actual=count,
+                message=(
+                    f"Tool calls exceed session limit "
+                    f"({count} > {self.max_tool_calls_per_session})"
+                ),
+            )
+        return None
+
 
 class LimitViolation(BaseModel):
     """Describes a limit that was exceeded."""
