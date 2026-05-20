@@ -2,32 +2,61 @@
 
 from __future__ import annotations
 
+import time
+from typing import Any
+
+from unplug.providers.content.env import load_firecrawl_api_key
 from unplug.providers.content.protocol import CleanResult, ScrapedContent
 
 
+def _document_to_scraped(url: str, doc: Any, scrape_ms: float) -> ScrapedContent:
+    markdown = getattr(doc, "markdown", None) or ""
+    metadata = getattr(doc, "metadata", None)
+    title = getattr(metadata, "title", None) if metadata else None
+    description = getattr(metadata, "description", None) if metadata else None
+    return ScrapedContent(
+        url=url,
+        markdown=markdown,
+        title=title,
+        description=description,
+        word_count=len(markdown.split()) if markdown else 0,
+        scrape_ms=scrape_ms,
+    )
+
+
 class FirecrawlProvider:
-    """Local Firecrawl API client. Requires firecrawl-py and API key."""
+    """Local Firecrawl client. Uses FIRECRAWL_API_KEY from env or .env."""
 
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
-        self._client: object | None = None
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or load_firecrawl_api_key()
+        self._client: Any | None = None
 
-    def _ensure_client(self) -> object:
+    @classmethod
+    def from_env(cls) -> FirecrawlProvider:
+        return cls()
+
+    def _ensure_client(self) -> Any:
         if self._client is not None:
             return self._client
         try:
             from firecrawl import FirecrawlApp
         except ImportError as exc:
-            msg = "Install scrape extra: uv add 'unplug[scrape]'"
+            msg = "Install scrape extra: uv sync --extra scrape"
             raise ImportError(msg) from exc
         self._client = FirecrawlApp(api_key=self._api_key)
         return self._client
 
-    async def scrape(self, url: str) -> ScrapedContent:
+    def scrape_sync(self, url: str) -> ScrapedContent:
+        start = time.perf_counter()
         client = self._ensure_client()
-        result = client.scrape_url(url)  # type: ignore[union-attr]
-        markdown = getattr(result, "markdown", "") or str(result)
-        return ScrapedContent(url=url, markdown=markdown, word_count=len(markdown.split()))
+        doc = client.scrape(url)
+        elapsed = (time.perf_counter() - start) * 1000
+        return _document_to_scraped(url, doc, elapsed)
+
+    async def scrape(self, url: str) -> ScrapedContent:
+        import asyncio
+
+        return await asyncio.to_thread(self.scrape_sync, url)
 
     async def clean(self, html: str) -> CleanResult:
         return CleanResult(text=html, original_length=len(html), cleaned_length=len(html))
