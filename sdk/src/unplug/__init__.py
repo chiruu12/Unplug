@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from unplug.core.config import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
+from unplug.core.config import (
+    GuardConfig,
+    LimitConfig,
+    PipelineConfig,
+    ScannerConfig,
+    ThresholdConfig,
+)
 from unplug.core.config_loader import load as load_config
 from unplug.core.context import ExecutionContext, ToolCall
 from unplug.core.logging import correlation_scope, get_correlation_id
@@ -22,6 +28,7 @@ __all__ = [
     "Finding",
     "Guard",
     "GuardConfig",
+    "LimitConfig",
     "MetricsCollector",
     "ModelProvider",
     "ModelRegistry",
