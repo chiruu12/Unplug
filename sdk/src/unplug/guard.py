@@ -12,9 +12,8 @@ from unplug.config.policy import ScanPolicy
 from unplug.core.cache import ScanCache, SafePrefixState, merge_suffix_result
 from unplug.core.policy import policy_from_request
 from unplug.core.context import ExecutionContext, ToolCall
-from unplug.core.privacy import PrivacyFilterService, build_privacy_filter
+from unplug.core.privacy import NullPrivacyFilter, PrivacyFilterService
 from unplug.core.versions import MODEL_VERSION_LOCAL, NORMALIZER_VERSION
-from unplug.guard_scan import refresh_scan_result
 from unplug.core.judge import JudgeProvider
 from unplug.core.limits import LimitConfig, LimitViolation
 from unplug.core.logging import correlation_scope, get_logger
@@ -90,7 +89,6 @@ class Guard:
         limits: LimitConfig | None = None,
         judge: JudgeProvider | Any | None = None,
         privacy_filter: PrivacyFilterService | None = None,
-        privacy_filter_enabled: bool = False,
         shared_scan_cache: ScanCache | None = None,
     ) -> None:
         cfg = config or GuardConfig()
@@ -119,9 +117,8 @@ class Guard:
             secrets_registry=self._secrets_registry,
             scan_cache=scan_cache,
         )
-        self._privacy_filter = privacy_filter or build_privacy_filter(
-            enabled=privacy_filter_enabled or cfg.privacy_filter_enabled,
-        )
+        # Privacy Filter loads only with unplug-safeguard model (not in public SDK v1).
+        self._privacy_filter = privacy_filter or NullPrivacyFilter()
         self._shared_scan_cache = shared_scan_cache
 
         self._server_client: UnplugClient | None = None
@@ -300,20 +297,6 @@ class Guard:
         cache.set_chunk(parts.full_hash, result)
         return result
 
-    def _apply_privacy_filter(
-        self,
-        text: str,
-        result: ScanResult,
-        *,
-        policy: ScanPolicy,
-    ) -> ScanResult:
-        if not self._privacy_filter.is_loaded:
-            return result
-        findings = self._privacy_filter.scan(text, baseline=list(result.findings))
-        if len(findings) == len(result.findings):
-            return result
-        return refresh_scan_result(text, findings, baseline=result, policy=policy)
-
     def scan_output(self, text: str | TaintedText) -> ScanResult:
         """Scan agent output for secrets and data leakage."""
         raw = text.text if isinstance(text, TaintedText) else text
@@ -337,9 +320,7 @@ class Guard:
                     return self._server_client.scan_output_request(request)
                 ctx = self._request_context(request, isolated=isolated)
                 body: str | TaintedText = request.text
-                result = self._output_pipeline.run(body, context=ctx)
-                policy = ctx.scan_policy or self._config.policy
-                return self._apply_privacy_filter(request.text, result, policy=policy)
+                return self._output_pipeline.run(body, context=ctx)
         except Exception as exc:
             _log.error("guard.scan_output_request failed: %s", exc)
             return _fail_closed(exc)

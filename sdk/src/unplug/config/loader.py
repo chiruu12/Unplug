@@ -127,8 +127,6 @@ def build_config(data: dict[str, Any]) -> GuardConfig:
         kwargs["cache"] = CacheConfig(
             **{k: v for k, v in guard_data["cache"].items() if k in CacheConfig.model_fields}
         )
-    if "privacy_filter_enabled" in guard_data:
-        kwargs["privacy_filter_enabled"] = guard_data["privacy_filter_enabled"]
     if "fail_closed" in guard_data:
         kwargs["fail_closed"] = guard_data["fail_closed"]
 

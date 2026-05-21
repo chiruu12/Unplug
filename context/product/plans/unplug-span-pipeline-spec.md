@@ -128,12 +128,13 @@ Fail-closed: stage errors → `BLOCK` (existing pipeline behavior).
 
 ---
 
-## Stage 3 — Privacy Filter (server)
+## Stage 3 — Privacy Filter (server, gated)
 
-- Model: [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (Apache 2.0).
-- Runs **server-side** optional dependency (`unplug[privacy]` or server bundle).
+- **Not in SDK pip package until unplug-safeguard model ships** (protocol + `NullPrivacyFilter` only).
+- Production PF comes from **unplug-safeguard** weights (not openai/privacy-filter in customer SDK).
 - Maps PF labels (`secret`, `private_email`, …) → `Finding` with spans.
 - **Same coverage policy as other findings** — no special-case bypass (see Policy).
+- Until model ships: output path uses `leakage` + `secrets` regex only.
 
 ---
 

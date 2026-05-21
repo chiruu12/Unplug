@@ -18,7 +18,7 @@ The large refactor (Guard → Pipelines → Safeguards, Pydantic config, server 
 
 - [x] Depends on `jakarta/sdk` editable path
 - [x] Per-request `scan_request(..., isolated=True)` (no shared `ExecutionContext` races)
-- [x] `UNPLUG_PRIVACY_FILTER_ENABLED` → heuristic PF on `scan/output`
+- [ ] PF only after unplug-safeguard model (`PRIVACY_FILTER_DEV_HEURISTIC` for internal dev only)
 - [x] `UNPLUG_CACHE_ENABLED` + shared `ScanCache` on app state
 - [ ] Redis/Postgres cache backend (later)
 - [ ] Real `openai/privacy-filter` model extra (later)
