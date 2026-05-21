@@ -1670,6 +1670,7 @@ all = [
     { name = "firecrawl-py" },
     { name = "numpy" },
     { name = "onnxruntime" },
+    { name = "python-dotenv" },
     { name = "transformers" },
 ]
 dev = [
@@ -1684,6 +1685,7 @@ ml = [
 ]
 scrape = [
     { name = "firecrawl-py" },
+    { name = "python-dotenv" },
 ]
 
 [package.dev-dependencies]
@@ -1701,6 +1703,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
+    { name = "python-dotenv", marker = "extra == 'scrape'", specifier = ">=1.2.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "transformers", marker = "extra == 'ml'", specifier = ">=4.40" },
     { name = "unplug", extras = ["ml", "scrape"], marker = "extra == 'all'" },

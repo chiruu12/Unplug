@@ -26,6 +26,20 @@ class BlockedContent(BaseModel):
     scan: ScanResult | None = None
 
 
+class ScrapeOutcome(BaseModel):
+    """Result of scrape + security filter."""
+
+    url: str
+    safe: bool
+    text: str | None = None
+    agent_message: str | None = None
+    redacted: bool = False
+    title: str | None = None
+    word_count: int = 0
+    scrape_ms: float = 0.0
+    scan: ScanResult | None = None
+
+
 class ContentOutcome(BaseModel):
     """Unified result from guard facades."""
 

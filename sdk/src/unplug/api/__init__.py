@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from unplug.api.enums import Action, Source
-from unplug.api.messages import BlockedContent, ContentOutcome, SafeContent
+from unplug.api.messages import BlockedContent, ContentOutcome, SafeContent, ScrapeOutcome
 from unplug.api.types import (
     BatchScanRequest,
     Finding,
@@ -20,6 +20,7 @@ __all__ = [
     "Finding",
     "HealthResponse",
     "SafeContent",
+    "ScrapeOutcome",
     "ScanRequest",
     "ScanResult",
     "Source",

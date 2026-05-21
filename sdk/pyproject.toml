@@ -29,6 +29,7 @@ ml = [
 ]
 scrape = [
     "firecrawl-py>=1.0",
+    "python-dotenv>=1.2.2",
 ]
 all = ["unplug[ml,scrape]"]
 dev = [
