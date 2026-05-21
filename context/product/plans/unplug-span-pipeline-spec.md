@@ -95,7 +95,7 @@ Fail-closed: stage errors → `BLOCK` (existing pipeline behavior).
 
 | Encoding | v1 | Notes |
 |----------|----|-------|
-| Base64 | Yes | Inline decode already in normalizer |
+| Base64 | Yes | `core/encodings.py` extract→heuristic/PG→mask; normalizer still decodes inline |
 | Base32 / Base85 | Later | Same extract→PG→mask pattern |
 | Hex blobs | Later | Optional PG on decoded bytes as text |
 

@@ -9,6 +9,7 @@ from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
 from unplug.core.judge import JudgeContext, JudgeProvider
 from unplug.core.logging import get_logger
+from unplug.core.encodings import EncodingClassifier, scan_encoding_blobs
 from unplug.core.normalize import Normalizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel, trust_level_from_source
@@ -31,6 +32,8 @@ class InputPipeline(BasePipeline):
         judge: JudgeProvider | Any | None = None,
         judge_low: float = 0.3,
         judge_high: float = 0.8,
+        encoding_classifier: EncodingClassifier | None = None,
+        scan_encodings: bool = True,
     ) -> None:
         super().__init__(config=config, metrics=metrics)
         self._scanners = scanners
@@ -38,6 +41,8 @@ class InputPipeline(BasePipeline):
         self._judge = judge
         self._judge_low = judge_low
         self._judge_high = judge_high
+        self._encoding_classifier = encoding_classifier
+        self._scan_encodings = scan_encodings
 
     def run(
         self,
@@ -59,6 +64,10 @@ class InputPipeline(BasePipeline):
 
     def _execute(self, input_data: TaintedText, context: ExecutionContext) -> list[Finding]:
         findings: list[Finding] = []
+        if self._scan_encodings:
+            findings.extend(
+                scan_encoding_blobs(input_data.text, classifier=self._encoding_classifier)
+            )
         for scanner in self._scanners:
             findings.extend(scanner.scan(input_data, context))
         if self._judge is not None:
