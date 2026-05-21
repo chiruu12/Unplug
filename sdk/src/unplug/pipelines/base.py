@@ -133,17 +133,23 @@ class BasePipeline(ABC):
         text = self._extract_text(input_data)
         if text is None:
             return None
-        spans = sorted(
+        raw_spans = sorted(
             [
                 (f.span_start, f.span_end, f.replacement)
                 for f in findings
                 if f.score >= policy.redact_threshold
             ],
             key=lambda s: s[0],
-            reverse=True,
         )
+        merged: list[tuple[int, int, str | None]] = []
+        for start, end, repl in raw_spans:
+            if merged and start <= merged[-1][1]:
+                prev_start, prev_end, prev_repl = merged[-1]
+                merged[-1] = (prev_start, max(prev_end, end), prev_repl)
+            else:
+                merged.append((start, end, repl))
         result = text
-        for start, end, replacement in spans:
+        for start, end, replacement in reversed(merged):
             result = result[:start] + (replacement or "[REDACTED]") + result[end:]
         return result
 

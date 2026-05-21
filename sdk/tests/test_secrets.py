@@ -3,6 +3,8 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from unplug.core.secrets import SecretEntry, SecretsRegistry, SecretsSanitizer
 
 
@@ -138,3 +140,21 @@ class TestSecretsSanitizer:
         result = sanitizer.sanitize("just normal text")
         assert result.clean_text == "just normal text"
         assert result.secrets_found == []
+
+    def test_sanitize_multiple_generic_patterns(self):
+        reg = SecretsRegistry()
+        sanitizer = SecretsSanitizer(reg)
+        text = "keys sk-abcdefghijklmnopqrstuvwxyz123456 and sk-zyxwvutsrqponmlkjihgfedcba654321"
+        result = sanitizer.sanitize(text)
+        assert "sk-" not in result.clean_text
+        assert result.clean_text.count("[REDACTED]") >= 2
+
+    def test_register_redos_pattern_rejected(self):
+        reg = SecretsRegistry()
+        with pytest.raises(ValueError, match="backtracking"):
+            reg.register("BAD", "x", pattern=r"(a+)+$")
+
+    def test_register_invalid_pattern(self):
+        reg = SecretsRegistry()
+        with pytest.raises(ValueError, match="Invalid regex"):
+            reg.register("BAD", "x", pattern=r"[unclosed")

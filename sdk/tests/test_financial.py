@@ -132,3 +132,18 @@ class TestTrustLevelScoreBoost:
         text = _make_text("just a normal conversation about the weather")
         findings = self.scanner.scan(text, self.ctx)
         assert len(findings) == 0
+
+    def test_zero_width_stripe_api(self):
+        text = _make_text("str\u200bipe.charges.create(amount=5000)")
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "stripe_api" for f in findings)
+
+    def test_zero_width_wire_transfer(self):
+        text = _make_text("initiate a wire\u200b transfer to account 12345")
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "wire_transfer" for f in findings)
+
+    def test_amount_preserves_digits_under_normalization(self):
+        text = _make_text("transfer $50,000 USD")
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "transfer_amount" for f in findings)

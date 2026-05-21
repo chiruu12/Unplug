@@ -41,6 +41,26 @@ class CacheKeyParts(BaseModel):
     model_version: str
 
 
+def cache_key_parts(
+    text: str,
+    *,
+    document_id: str | None,
+    normalizer_version: str = NORMALIZER_VERSION,
+    model_version: str = MODEL_VERSION_LOCAL,
+) -> CacheKeyParts:
+    doc_key = f"doc:{document_id}" if document_id else f"hash:{_sha256(text)[:16]}"
+    return CacheKeyParts(
+        doc_key=doc_key,
+        full_hash=_sha256(text),
+        normalizer_version=normalizer_version,
+        model_version=model_version,
+    )
+
+
+def prefix_storage_key(parts: CacheKeyParts) -> str:
+    return f"{parts.doc_key}|{parts.normalizer_version}|{parts.model_version}"
+
+
 class ScanCache:
     """In-process LRU: safe prefix per document + chunk results by content hash."""
 
@@ -57,22 +77,21 @@ class ScanCache:
         normalizer_version: str = NORMALIZER_VERSION,
         model_version: str = MODEL_VERSION_LOCAL,
     ) -> CacheKeyParts:
-        doc_key = f"doc:{document_id}" if document_id else f"hash:{_sha256(text)[:16]}"
-        return CacheKeyParts(
-            doc_key=doc_key,
-            full_hash=_sha256(text),
+        return cache_key_parts(
+            text,
+            document_id=document_id,
             normalizer_version=normalizer_version,
             model_version=model_version,
         )
 
     def prefix_storage_key(self, parts: CacheKeyParts) -> str:
-        return f"{parts.doc_key}|{parts.normalizer_version}|{parts.model_version}"
+        return prefix_storage_key(parts)
 
     def get_safe_prefix(self, parts: CacheKeyParts) -> SafePrefixState | None:
-        return self._prefixes.get(self.prefix_storage_key(parts))
+        return self._prefixes.get(prefix_storage_key(parts))
 
     def set_safe_prefix(self, parts: CacheKeyParts, state: SafePrefixState) -> None:
-        self._prefixes[self.prefix_storage_key(parts)] = state
+        self._prefixes[prefix_storage_key(parts)] = state
 
     def get_chunk(self, content_hash: str) -> ScanResult | None:
         return self._chunks.get(content_hash)

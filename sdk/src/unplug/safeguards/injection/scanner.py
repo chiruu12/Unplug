@@ -46,3 +46,18 @@ class InjectionScanner(RegexScanner):
                     evidence=f"Matched pattern: {subcategory}",
                     replacement=self._get_replacement(subcategory),
                 )
+
+        if norm_result.reversed_text:
+            for subcategory, pattern in self._patterns:
+                for match in pattern.finditer(norm_result.reversed_text):
+                    score = self._compute_score(subcategory, text)
+                    yield Finding(
+                        category=self.name,
+                        subcategory=f"{subcategory}_reversed",
+                        stage="regex",
+                        span_start=0,
+                        span_end=len(text.text),
+                        score=score,
+                        evidence=f"Reversed text matched: {subcategory}",
+                        replacement="[REDACTED]",
+                    )

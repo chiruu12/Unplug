@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-_GENERIC_SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
+_MAX_PATTERN_LENGTH = 500
+_MAX_REGISTRY_SIZE = 10_000
+_NESTED_QUANTIFIER = re.compile(r"\([^)]*[+*][^)]*\)[+*{]")
+
+
+_GENERIC_SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "generic_api_key",
         re.compile(
@@ -22,11 +28,30 @@ _GENERIC_SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
 ]
 
 
+def _compile_user_pattern(pattern: str) -> re.Pattern[str]:
+    if len(pattern) > _MAX_PATTERN_LENGTH:
+        msg = f"Pattern too long: {len(pattern)} > {_MAX_PATTERN_LENGTH}"
+        raise ValueError(msg)
+    if _NESTED_QUANTIFIER.search(pattern):
+        msg = "Pattern may cause catastrophic backtracking"
+        raise ValueError(msg)
+    try:
+        compiled = re.compile(pattern)
+        compiled.search("a" * 100)
+    except re.error as exc:
+        msg = f"Invalid regex pattern: {exc}"
+        raise ValueError(msg) from exc
+    return compiled
+
+
 class SecretEntry(BaseModel):
     name: str
     value: str = Field(repr=False, exclude=True)
     source: str
     pattern: str | None = Field(default=None, exclude=True)
+    compiled_pattern: Any = Field(default=None, exclude=True, repr=False)
+
+    model_config = {"arbitrary_types_allowed": True}
 
     def __repr__(self) -> str:
         return f"SecretEntry(name={self.name!r}, source={self.source!r})"
@@ -63,7 +88,17 @@ class SecretsRegistry:
     ) -> None:
         if not value:
             return
-        self._secrets[name] = SecretEntry(name=name, value=value, source=source, pattern=pattern)
+        if len(self._secrets) >= _MAX_REGISTRY_SIZE:
+            msg = f"Registry size limit reached ({_MAX_REGISTRY_SIZE})"
+            raise ValueError(msg)
+        compiled_pattern = _compile_user_pattern(pattern) if pattern else None
+        self._secrets[name] = SecretEntry(
+            name=name,
+            value=value,
+            source=source,
+            pattern=pattern,
+            compiled_pattern=compiled_pattern,
+        )
 
     def register_from_env(self, prefixes: list[str]) -> int:
         count = 0
@@ -96,9 +131,8 @@ class SecretsRegistry:
                     )
                 start = idx + 1
 
-            if entry.pattern:
-                compiled = re.compile(entry.pattern)
-                for m in compiled.finditer(text):
+            if entry.compiled_pattern is not None:
+                for m in entry.compiled_pattern.finditer(text):
                     span = (m.start(), m.end())
                     if span not in matched_spans:
                         matched_spans.add(span)
@@ -145,9 +179,12 @@ class SecretsSanitizer:
         matches = self._registry.contains(text)
         clean = self._registry.redact(text)
 
-        for subcategory, pat in _GENERIC_SECRET_PATTERNS:
+        generic_spans: list[tuple[int, int]] = []
+        for _subcategory, pat in _GENERIC_SECRET_PATTERNS:
             for m in pat.finditer(clean):
-                clean = clean[: m.start()] + "[REDACTED]" + clean[m.end() :]
-                break
+                generic_spans.append((m.start(), m.end()))
+
+        for start, end in sorted(generic_spans, reverse=True):
+            clean = clean[:start] + "[REDACTED]" + clean[end:]
 
         return SanitizeResult(clean_text=clean, secrets_found=matches)

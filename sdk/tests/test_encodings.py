@@ -35,11 +35,15 @@ class TestEncodingBlobs:
         assert f.stage == "encoding"
         assert text[f.span_start : f.span_end] == payload
 
-    def test_invalid_decode_flags_blob(self) -> None:
-        # Valid charset/length but not decodable payload
+    def test_invalid_decode_skipped(self) -> None:
+        # Valid charset/length but not decodable — not treated as an attack signal.
         text = "data: " + ("A" * 24) + "==="
-        findings = scan_encoding_blobs(text)
-        assert any(f.subcategory == "encoded_decode_failed" for f in findings)
+        assert scan_encoding_blobs(text) == []
+
+    def test_api_key_substring_not_treated_as_blob(self) -> None:
+        text = "My API key is sk-live-abcdefghijklmnopqrstuvwxyz1234567890"
+        assert scan_encoding_blobs(text) == []
+        assert iter_base64_blobs(text) == []
 
     def test_benign_base64_no_finding(self) -> None:
         payload = _b64("The weather is sunny in Boston today.")

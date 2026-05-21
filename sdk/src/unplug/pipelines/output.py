@@ -59,7 +59,7 @@ class OutputPipeline(BasePipeline):
         _ = text_len, policy
         if risk_score >= self._config.thresholds.block:
             return Action.BLOCK
-        if findings:
+        if risk_score >= self._config.thresholds.redact:
             return Action.REDACT
         return Action.ALLOW
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from unplug.core.config import PipelineConfig
@@ -37,7 +36,9 @@ class ToolCallPipeline(BasePipeline):
         return super().run(tool_call, context=context)
 
     def _execute(self, input_data: ToolCall, context: ExecutionContext) -> list[Finding]:
-        scan_text = f"{input_data.tool_name} {json.dumps(input_data.arguments)}"
+        text_parts = [input_data.tool_name]
+        text_parts.extend(self._extract_string_values(input_data.arguments))
+        scan_text = " ".join(text_parts)
         tainted = self._tagger.tag(scan_text, TrustLevel.USER, "tool_call_pipeline")
 
         findings: list[Finding] = []
@@ -51,6 +52,20 @@ class ToolCallPipeline(BasePipeline):
             findings.extend(self._financial.scan(tainted, context))
 
         return findings
+
+    @staticmethod
+    def _extract_string_values(obj: Any) -> list[str]:
+        """Recursively extract all string values from a nested dict/list."""
+        values: list[str] = []
+        if isinstance(obj, str):
+            values.append(obj)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                values.extend(ToolCallPipeline._extract_string_values(v))
+        elif isinstance(obj, list):
+            for item in obj:
+                values.extend(ToolCallPipeline._extract_string_values(item))
+        return values
 
     def _decide(
         self,
