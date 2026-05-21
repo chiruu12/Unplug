@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from unplug.api.messages import ScrapeOutcome
 from unplug.guards.scrape import ScrapeGuard, scrape
@@ -50,3 +53,41 @@ class TestScrapeGuard:
         out = scrape("https://example.com", api_key="fc-test-key")
         assert out.safe is True
         assert out.text is not None
+
+    @pytest.mark.asyncio
+    async def test_scrape_async_server_provider(self) -> None:
+        class _AsyncOnlyProvider:
+            async def scrape(self, url: str) -> ScrapedContent:
+                return ScrapedContent(
+                    url=url,
+                    markdown="Benign page content for agents.",
+                    title="Page",
+                    word_count=5,
+                    scrape_ms=1.0,
+                )
+
+            async def clean(self, html: str) -> object:
+                return None
+
+        out = await ScrapeGuard(provider=_AsyncOnlyProvider()).scrape_async("https://example.com")
+        assert out.safe is True
+        assert out.text is not None
+
+    @pytest.mark.asyncio
+    async def test_scrape_sync_from_running_event_loop(self) -> None:
+        """Sync scrape() must not call asyncio.run() while a loop is active."""
+
+        class _AsyncOnlyProvider:
+            async def scrape(self, url: str) -> ScrapedContent:
+                return ScrapedContent(
+                    url=url,
+                    markdown="Safe documentation text.",
+                    word_count=3,
+                    scrape_ms=1.0,
+                )
+
+            async def clean(self, html: str) -> object:
+                return None
+
+        out = ScrapeGuard(provider=_AsyncOnlyProvider()).scrape("https://example.com")
+        assert out.safe is True

@@ -1,9 +1,10 @@
-"""Scrape URL via Firecrawl, then filter content for agents."""
+"""Scrape URL via content provider, then filter content for agents."""
 
 from __future__ import annotations
 
 from unplug.api.messages import ScrapeOutcome
 from unplug.config.messages import MessageConfig
+from unplug.core.asyncio_compat import run_coroutine_sync
 from unplug.guard import Guard
 from unplug.orchestrators.tool_output import ToolOutputOrchestrator
 from unplug.providers.content.firecrawl import FirecrawlProvider
@@ -11,7 +12,7 @@ from unplug.providers.content.protocol import ContentProvider, ScrapedContent
 
 
 class ScrapeOrchestrator:
-    """Fetch with Firecrawl, scan markdown, return agent-safe content."""
+    """Fetch with a ContentProvider, scan markdown, return agent-safe content."""
 
     name = "scrape"
 
@@ -28,7 +29,12 @@ class ScrapeOrchestrator:
         self._filter = ToolOutputOrchestrator(self._guard, messages=self._messages)
 
     def run(self, url: str) -> ScrapeOutcome:
-        scraped = self._fetch(url)
+        """Synchronous scrape + filter (safe inside running event loops)."""
+        return run_coroutine_sync(self.run_async(url))
+
+    async def run_async(self, url: str) -> ScrapeOutcome:
+        """Async scrape + filter — prefer in agent frameworks."""
+        scraped = await self._fetch_async(url)
         filter_result = self._filter.run(scraped.markdown)
         outcome = filter_result.outcome
 
@@ -55,9 +61,10 @@ class ScrapeOrchestrator:
             scan=filter_result.scan,
         )
 
-    def _fetch(self, url: str) -> ScrapedContent:
-        if hasattr(self._provider, "scrape_sync"):
-            return self._provider.scrape_sync(url)  # type: ignore[union-attr]
-        import asyncio
+    async def _fetch_async(self, url: str) -> ScrapedContent:
+        scrape_sync = getattr(self._provider, "scrape_sync", None)
+        if scrape_sync is not None:
+            import asyncio
 
-        return asyncio.run(self._provider.scrape(url))
+            return await asyncio.to_thread(scrape_sync, url)
+        return await self._provider.scrape(url)
