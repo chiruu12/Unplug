@@ -16,8 +16,23 @@
 
 ---
 
+## ML deployment (product decision)
+
+| Layer | Where models run | v1 |
+|-------|------------------|-----|
+| Regex + normalizer | SDK (local) | Yes |
+| Encoder classifier (DeBERTa / custom) | **unplug-server only** | Yes — `Guard(mode="server")` |
+| Privacy Filter | **Server only** | Yes |
+| ONNX / local inference | SDK | **No** until BYOM phase |
+| User-provided on-device model | SDK plugin | **Later** — custom model hook |
+
+**Eval note:** `unplug_exp` DeBERTa benchmarks inform **server** model choice, not an SDK bundle.
+
+---
+
 ## Non-goals (v1)
 
+- **Local ML in the pip package** (no transformers/onnxruntime required for default install).
 - Generative SLM (Gemma/LFM) as primary redaction engine.
 - Training span models on pure encoding tricks (Base64, leet, etc.) — handled by normalize + Prompt Guard.
 - Mandatory scan of all `retrieved` content — **callers choose** `source` and `scanners`.

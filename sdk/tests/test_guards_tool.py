@@ -36,3 +36,10 @@ class TestToolGuard:
     def test_module_filter_alias(self) -> None:
         out = tool.filter("hello world")
         assert out.safe is True
+
+    def test_filter_allows_markdown_code_fence(self) -> None:
+        doc = "Install:\n```bash\npip install unplug\n```\nDone."
+        out = ToolGuard().filter(doc)
+        assert out.safe is True
+        assert out.text is not None
+        assert "```bash" in out.text

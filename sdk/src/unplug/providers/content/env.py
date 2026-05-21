@@ -36,8 +36,9 @@ def load_firecrawl_api_key(*, required: bool = True) -> str | None:
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 name, _, value = line.partition("=")
-                if name.strip() == "FIRECRAWL_API_KEY" and value.strip():
-                    os.environ.setdefault("FIRECRAWL_API_KEY", value.strip().strip("\"'"))
+                value = value.split("#", 1)[0].strip().strip("\"'")
+                if name.strip() == "FIRECRAWL_API_KEY" and value:
+                    os.environ.setdefault("FIRECRAWL_API_KEY", value)
                     break
         key = os.environ.get("FIRECRAWL_API_KEY")
 

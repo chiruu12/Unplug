@@ -39,9 +39,15 @@ INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
     (
-        "closing_delimiter",
+        "role_delimiter",
         re.compile(
-            r"(```|<\/?system>|<\/?instruction>|\[\/INST\]|<\|im_end\|>)",
+            r"(<\/?system>|<\/?instruction>|\[\/INST\]|<\|im_end\|>)",
+        ),
+    ),
+    (
+        "fence_role_injection",
+        re.compile(
+            r"(?i)```\s*(system|assistant|instruction|prompt)\b",
         ),
     ),
     (
