@@ -85,7 +85,17 @@ class InputPipeline(BasePipeline):
             return []
         judge_ctx = JudgeContext(scanner_findings=findings)
         try:
-            result = asyncio.run(self._judge.judge(input_data.text, judge_ctx))
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                result = asyncio.run(self._judge.judge(input_data.text, judge_ctx))
+            else:
+                future = asyncio.run_coroutine_threadsafe(
+                    self._judge.judge(input_data.text, judge_ctx),
+                    loop,
+                )
+                timeout = self._config.judge_timeout
+                result = future.result(timeout=timeout)
         except Exception as exc:
             _log.error("input pipeline judge failed: %s", exc)
             return [

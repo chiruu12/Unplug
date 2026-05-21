@@ -42,6 +42,7 @@ class PipelineConfig(BaseModel):
     thresholds: ThresholdConfig = Field(default_factory=ThresholdConfig)
     policy: ScanPolicy = Field(default_factory=ScanPolicy)
     fail_closed: bool = True
+    judge_timeout: float = 30.0
 
 
 class GuardConfig(BaseModel):

@@ -8,6 +8,8 @@ import unicodedata
 
 from pydantic import BaseModel, Field
 
+_MAX_BASE64_DECODED_SIZE = 10_000  # 10KB max per decoded chunk
+
 
 class NormalizeResult(BaseModel):
     text: str
@@ -17,15 +19,19 @@ class NormalizeResult(BaseModel):
     reversed_text: str | None = None
 
     def to_original_span(self, norm_start: int, norm_end: int) -> tuple[int, int]:
+        orig_len = len(self.original)
         if not self.offset_table or norm_start >= len(self.offset_table):
-            return (norm_start, norm_end)
+            return (min(norm_start, orig_len), min(norm_end, orig_len))
         orig_start = self.offset_table[min(norm_start, len(self.offset_table) - 1)]
         orig_end_idx = min(norm_end - 1, len(self.offset_table) - 1)
         if norm_end > 0 and orig_end_idx >= 0:
             orig_end = self.offset_table[orig_end_idx] + 1
         else:
             orig_end = orig_start
-        return (orig_start, max(orig_end, orig_start))
+        return (
+            max(0, min(orig_start, orig_len)),
+            max(orig_start, min(orig_end, orig_len)),
+        )
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -369,6 +375,8 @@ def _decode_base64(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
         candidate = m.group(0)
         try:
             decoded_bytes = base64.b64decode(candidate, validate=True)
+            if len(decoded_bytes) > _MAX_BASE64_DECODED_SIZE:
+                continue
             decoded = decoded_bytes.decode("utf-8")
         except Exception:
             continue
@@ -406,33 +414,63 @@ def _normalize_enclosed(text: str, offset_table: list[int]) -> tuple[str, list[i
 
 
 def _strip_delimiters(text: str, offset_table: list[int]) -> tuple[str, list[int]]:
-    pattern = re.compile(r"\b([a-zA-Z])([.\-_])([a-zA-Z])(?:\2[a-zA-Z]){2,}\b")
-    result_chars: list[str] = []
-    result_offsets: list[int] = []
-    i = 0
-    for m in pattern.finditer(text):
-        start, end = m.start(), m.end()
-        while i < start:
-            result_chars.append(text[i])
-            result_offsets.append(offset_table[i])
+    pattern = re.compile(r"\b([a-zA-Z])([.\-_|])([a-zA-Z])(?:\2[a-zA-Z]){2,}\b")
+    current_text, current_offsets = text, offset_table
+    while True:
+        result_chars: list[str] = []
+        result_offsets: list[int] = []
+        i = 0
+        for m in pattern.finditer(current_text):
+            start, end = m.start(), m.end()
+            while i < start:
+                result_chars.append(current_text[i])
+                result_offsets.append(current_offsets[i])
+                i += 1
+            delim = m.group(2)
+            segment = current_text[start:end]
+            for ci, ch in enumerate(segment):
+                if ch != delim:
+                    result_chars.append(ch)
+                    result_offsets.append(current_offsets[start + ci])
+            i = end
+
+        while i < len(current_text):
+            result_chars.append(current_text[i])
+            result_offsets.append(current_offsets[i])
             i += 1
-        delim = m.group(2)
-        segment = text[start:end]
-        for ci, ch in enumerate(segment):
-            if ch != delim:
-                result_chars.append(ch)
-                result_offsets.append(offset_table[start + ci])
-        i = end
 
-    while i < len(text):
-        result_chars.append(text[i])
-        result_offsets.append(offset_table[i])
-        i += 1
+        new_text = "".join(result_chars)
+        if new_text == current_text:
+            break
+        current_text, current_offsets = new_text, result_offsets
 
-    new_text = "".join(result_chars)
-    if new_text == text:
+    pipe_between = re.compile(r"(?<=[a-zA-Z])\|(?=[a-zA-Z])")
+    if pipe_between.search(current_text):
+        result_chars = []
+        result_offsets = []
+        for i, ch in enumerate(current_text):
+            if ch == "|" and i > 0 and i + 1 < len(current_text):
+                if current_text[i - 1].isalpha() and current_text[i + 1].isalpha():
+                    continue
+            result_chars.append(ch)
+            result_offsets.append(current_offsets[i])
+        current_text = "".join(result_chars)
+        current_offsets = result_offsets
+
+    if "|" in current_text:
+        result_chars = []
+        result_offsets = []
+        for i, ch in enumerate(current_text):
+            if ch == "|":
+                continue
+            result_chars.append(ch)
+            result_offsets.append(current_offsets[i])
+        current_text = "".join(result_chars)
+        current_offsets = result_offsets
+
+    if current_text == text:
         return text, offset_table
-    return new_text, result_offsets
+    return current_text, current_offsets
 
 
 def _match_cross_language(text: str, offset_table: list[int]) -> tuple[str, list[int]]:

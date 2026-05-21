@@ -90,11 +90,11 @@ class MetricsCollector:
 
     def scanner_stats(self, name: str) -> ScannerStats:
         with self._lock:
-            return self._scanners[name]
+            return self._scanners[name].model_copy()
 
     def pipeline_stats(self, name: str) -> PipelineStats:
         with self._lock:
-            return self._pipelines[name]
+            return self._pipelines[name].model_copy()
 
     def snapshot(self) -> dict:
         """Full metrics snapshot — safe to serialize."""

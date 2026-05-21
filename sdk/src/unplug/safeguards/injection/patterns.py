@@ -13,6 +13,19 @@ INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
     (
+        "ignore_previous_fragment",
+        re.compile(
+            r"(?i)(ignore|forget|disregard|override|bypass)\s+(all\s+)?"
+            r"(previous|prior|above|earlier)\b",
+        ),
+    ),
+    (
+        "ignore_previous_i18n",
+        re.compile(
+            r"(?i)(ignorar|olvidar|ignore)\s+(las\s+)?(instrucciones\s+)?(anteriores|previas)",
+        ),
+    ),
+    (
         "persona_replacement",
         re.compile(
             r"(?i)(you\s+are\s+now|act\s+as|pretend\s+(to\s+be|you\s+are)|from\s+now\s+on\s+you)",

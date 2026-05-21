@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Self
+
+from pydantic import BaseModel, Field, model_validator
 
 from unplug.api.enums import Action, Source
 
@@ -11,11 +13,18 @@ class Finding(BaseModel):
     category: str = Field(description="Scanner category")
     subcategory: str = Field(description="Specific threat type")
     stage: str = Field(description="Pipeline stage: regex, classifier, llm_judge")
-    span_start: int = Field(description="Start offset in original text")
-    span_end: int = Field(description="End offset in original text")
+    span_start: int = Field(ge=0, description="Start offset in original text")
+    span_end: int = Field(ge=0, description="End offset in original text")
     score: float = Field(ge=0.0, le=1.0, description="Confidence score")
     evidence: str = Field(description="Human-readable explanation")
     replacement: str | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def validate_span(self) -> Self:
+        if self.span_start > self.span_end:
+            msg = f"span_start ({self.span_start}) must be <= span_end ({self.span_end})"
+            raise ValueError(msg)
+        return self
 
 
 class ScanResult(BaseModel):
