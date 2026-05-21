@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from unplug.api.enums import Action, Source
@@ -18,6 +19,7 @@ from unplug.core.taint import TaintedText
 from unplug.pipelines.input import InputPipeline
 from unplug.pipelines.output import OutputPipeline
 from unplug.pipelines.toolcall import ToolCallPipeline
+from unplug.client import UnplugClient
 from unplug.safeguards import ScannerRegistry
 
 _log = get_logger("guard")
@@ -75,6 +77,7 @@ class Guard:
         scanners: list[str] | None = None,
         mode: str = "local",
         server_url: str | None = None,
+        server_api_key: str | None = None,
         fail_mode: str = "closed",
         secrets_registry: SecretsRegistry | None = None,
         config: GuardConfig | None = None,
@@ -87,6 +90,8 @@ class Guard:
             overrides["scanners"] = scanners
         if server_url is not None:
             overrides["server_url"] = server_url
+        if server_api_key is not None:
+            overrides["server_api_key"] = server_api_key
         if limits is not None:
             overrides["limits"] = limits
         cfg = cfg.model_copy(update=overrides)
@@ -97,6 +102,12 @@ class Guard:
         self._metrics = MetricsCollector()
         self._secrets_registry = secrets_registry or SecretsRegistry()
         self._context = ExecutionContext(secrets_registry=self._secrets_registry)
+
+        self._server_client: UnplugClient | None = None
+        if cfg.mode == "server":
+            url = cfg.server_url or os.environ.get("UNPLUG_SERVER_URL", "http://localhost:8000")
+            key = cfg.server_api_key or os.environ.get("UNPLUG_API_KEY")
+            self._server_client = UnplugClient(base_url=url, api_key=key)
 
         self._registry = ScannerRegistry(metrics=self._metrics)
         v2_scanners = self._registry.get_many(cfg.scanners, configs=cfg.scanner_configs)
@@ -159,6 +170,8 @@ class Guard:
             return _limit_result(violation, len(text))
         try:
             with correlation_scope():
+                if self._server_client is not None:
+                    return self._server_client.scan(text, source=source)
                 return self._input_pipeline.run(text, source=source, context=self._context)
         except Exception as exc:
             _log.error("guard.scan failed: %s", exc)
@@ -214,7 +227,21 @@ class Guard:
 
     def scan_request(self, request: ScanRequest) -> ScanResult:
         """Scan from a ScanRequest object."""
+        if self._server_client is not None:
+            violation = self._limits.check_input_length(request.text)
+            if violation is not None:
+                return _limit_result(violation, len(request.text))
+            try:
+                with correlation_scope():
+                    return self._server_client.scan_request(request)
+            except Exception as exc:
+                _log.error("guard.scan_request failed: %s", exc)
+                return _fail_closed(exc)
         return self.scan(request.text, request.source)
+
+    @property
+    def is_server_mode(self) -> bool:
+        return self._server_client is not None
 
     def stats(self) -> dict:
         """Full metrics snapshot."""

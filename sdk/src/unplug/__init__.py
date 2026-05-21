@@ -20,6 +20,7 @@ from unplug.core.models import ModelProvider, ModelRegistry, ModelSpec
 from unplug.core.secrets import SecretsRegistry
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import Tagger, TaintedText, TrustLevel
+from unplug.client import UnplugClient
 from unplug.guard import Guard
 from unplug.models import Action, Finding, ScanResult, Source
 from unplug.safeguards import SafeguardRegistry, ScannerRegistry
@@ -53,6 +54,7 @@ __all__ = [
     "TaintedText",
     "ThresholdConfig",
     "ToolCall",
+    "UnplugClient",
     "TrustLevel",
     "correlation_scope",
     "get_correlation_id",

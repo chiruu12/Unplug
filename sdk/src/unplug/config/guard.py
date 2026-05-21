@@ -49,6 +49,7 @@ class GuardConfig(BaseModel):
     )
     mode: str = "local"
     server_url: str | None = None
+    server_api_key: str | None = None
     fail_closed: bool = True
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     scanner_configs: dict[str, ScannerConfig] = Field(default_factory=dict)
