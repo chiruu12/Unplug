@@ -72,7 +72,7 @@ flowchart TB
 | 1a | **Encoding extractor** → decoded payload → **Prompt Guard** | Mask **original encoding blob** on hit (no BIOES on blob) |
 | 1b | Regex safeguards, `SecretsRegistry` | `Finding` spans |
 | 2a | Prompt Guard 22M → 86M confirm on gray-zone | Block/mask segment or escalate |
-| 2b | **DeBERTa-v3-small** (+ BIOES head), sliding 512 if needed | `Finding` spans on prose |
+| 2b | **Server classifier** (DeBERTa → custom) when `risk_score < 0.8` | Not only 0.3–0.8 band — catches regex misses |
 | 3 | **openai/privacy-filter** (server, optional extra) | PF spans → mapped to `Finding` |
 | 4 | `ScanPolicy` | `ALLOW` \| `REDACT` \| `REVIEW` \| `BLOCK` |
 
