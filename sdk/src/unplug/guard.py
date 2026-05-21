@@ -13,6 +13,7 @@ from unplug.config.guard import GuardConfig
 from unplug.config.policy import ScanPolicy
 from unplug.core.cache import SafePrefixState, ScanCache, merge_suffix_result
 from unplug.core.context import ExecutionContext, ToolCall
+from unplug.core.encodings import EncodingClassifier
 from unplug.core.judge import JudgeProvider
 from unplug.core.limits import LimitConfig, LimitViolation
 from unplug.core.logging import correlation_scope, get_logger
@@ -92,6 +93,8 @@ class Guard:
         judge: JudgeProvider | Any | None = None,
         privacy_filter: PrivacyFilterService | None = None,
         shared_scan_cache: ScanCache | None = None,
+        encoding_classifier: EncodingClassifier | None = None,
+        scan_encodings: bool = True,
     ) -> None:
         cfg = config or GuardConfig()
         overrides: dict[str, Any] = {"mode": mode, "fail_closed": fail_mode == "closed"}
@@ -138,6 +141,8 @@ class Guard:
             judge=judge if cfg.judge_enabled or judge is not None else None,
             judge_low=cfg.judge_low,
             judge_high=cfg.judge_high,
+            encoding_classifier=encoding_classifier,
+            scan_encodings=scan_encodings,
         )
 
         self._output_pipeline = OutputPipeline(
