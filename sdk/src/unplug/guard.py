@@ -9,8 +9,12 @@ from unplug.api.enums import Action, Source
 from unplug.api.types import Finding, ScanRequest, ScanResult
 from unplug.config.guard import GuardConfig
 from unplug.config.policy import ScanPolicy
+from unplug.core.cache import ScanCache, SafePrefixState, merge_suffix_result
 from unplug.core.policy import policy_from_request
 from unplug.core.context import ExecutionContext, ToolCall
+from unplug.core.privacy import PrivacyFilterService, build_privacy_filter
+from unplug.core.versions import MODEL_VERSION_LOCAL, NORMALIZER_VERSION
+from unplug.guard_scan import refresh_scan_result
 from unplug.core.judge import JudgeProvider
 from unplug.core.limits import LimitConfig, LimitViolation
 from unplug.core.logging import correlation_scope, get_logger
@@ -85,6 +89,9 @@ class Guard:
         config: GuardConfig | None = None,
         limits: LimitConfig | None = None,
         judge: JudgeProvider | Any | None = None,
+        privacy_filter: PrivacyFilterService | None = None,
+        privacy_filter_enabled: bool = False,
+        shared_scan_cache: ScanCache | None = None,
     ) -> None:
         cfg = config or GuardConfig()
         overrides: dict[str, Any] = {"mode": mode, "fail_closed": fail_mode == "closed"}
@@ -103,7 +110,19 @@ class Guard:
         self._judge = judge
         self._metrics = MetricsCollector()
         self._secrets_registry = secrets_registry or SecretsRegistry()
-        self._context = ExecutionContext(secrets_registry=self._secrets_registry)
+        scan_cache = (
+            ScanCache(max_chunk_entries=cfg.cache.max_chunk_entries)
+            if cfg.cache.enabled
+            else None
+        )
+        self._context = ExecutionContext(
+            secrets_registry=self._secrets_registry,
+            scan_cache=scan_cache,
+        )
+        self._privacy_filter = privacy_filter or build_privacy_filter(
+            enabled=privacy_filter_enabled or cfg.privacy_filter_enabled,
+        )
+        self._shared_scan_cache = shared_scan_cache
 
         self._server_client: UnplugClient | None = None
         if cfg.mode == "server":
@@ -203,6 +222,98 @@ class Guard:
         ctx.scan_policy = policy
         return policy
 
+    def _request_context(self, request: ScanRequest, *, isolated: bool) -> ExecutionContext:
+        policy = policy_from_request(request, self._config.policy)
+        if not isolated:
+            self._apply_request_context(request)
+            return self._context
+
+        cache: ScanCache | None = None
+        if self._config.cache.enabled:
+            cache = self._shared_scan_cache or ScanCache(
+                max_chunk_entries=self._config.cache.max_chunk_entries
+            )
+
+        return ExecutionContext(
+            session_id=request.session_id or self._context.session_id,
+            agent_id=request.agent_id if request.agent_id is not None else self._context.agent_id,
+            turn_id=request.turn_id if request.turn_id is not None else self._context.turn_id,
+            document_id=(
+                request.document_id
+                if request.document_id is not None
+                else self._context.document_id
+            ),
+            secrets_registry=self._secrets_registry,
+            scan_policy=policy,
+            scan_cache=cache,
+        )
+
+    def _model_version_for_cache(self) -> str:
+        return MODEL_VERSION_LOCAL
+
+    def _run_input_with_cache(self, request: ScanRequest, ctx: ExecutionContext) -> ScanResult:
+        cache = ctx.scan_cache
+        if cache is None or not self._config.cache.enabled:
+            return self._input_pipeline.run(
+                request.text,
+                source=request.source,
+                context=ctx,
+            )
+
+        parts = cache.cache_key_parts(
+            request.text,
+            document_id=request.document_id,
+            normalizer_version=NORMALIZER_VERSION,
+            model_version=self._model_version_for_cache(),
+        )
+        hit = cache.get_chunk(parts.full_hash)
+        if hit is not None:
+            return hit
+
+        prefix_state = cache.get_safe_prefix(parts)
+        prefix_len = 0
+        if prefix_state is not None and prefix_state.verify(request.text):
+            prefix_len = prefix_state.prefix_len
+
+        if 0 < prefix_len < len(request.text):
+            suffix_result = self._input_pipeline.run(
+                request.text[prefix_len:],
+                source=request.source,
+                context=ctx,
+            )
+            result = merge_suffix_result(suffix_result, prefix_len)
+        else:
+            result = self._input_pipeline.run(
+                request.text,
+                source=request.source,
+                context=ctx,
+            )
+
+        if cache.should_advance_prefix(
+            result.action,
+            advance_on_redact=self._config.cache.advance_prefix_on_redact,
+        ):
+            cache.set_safe_prefix(
+                parts,
+                SafePrefixState.from_text(request.text, len(request.text)),
+            )
+        cache.set_chunk(parts.full_hash, result)
+        return result
+
+    def _apply_privacy_filter(
+        self,
+        text: str,
+        result: ScanResult,
+        *,
+        policy: ScanPolicy,
+    ) -> ScanResult:
+        if not self._privacy_filter.is_loaded:
+            return result
+        findings = self._privacy_filter.scan(text, baseline=list(result.findings))
+        if len(findings) == len(result.findings):
+            return result
+        return refresh_scan_result(text, findings, baseline=result, policy=policy)
+
     def scan_output(self, text: str | TaintedText) -> ScanResult:
         """Scan agent output for secrets and data leakage."""
         raw = text.text if isinstance(text, TaintedText) else text
@@ -210,7 +321,12 @@ class Guard:
             self._build_scan_request(raw, source=Source.TOOL_OUTPUT),
         )
 
-    def scan_output_request(self, request: ScanRequest) -> ScanResult:
+    def scan_output_request(
+        self,
+        request: ScanRequest,
+        *,
+        isolated: bool = False,
+    ) -> ScanResult:
         """Scan output from a ScanRequest (hosted server or local pipeline)."""
         violation = self._limits.check_input_length(request.text)
         if violation is not None:
@@ -219,9 +335,11 @@ class Guard:
             with correlation_scope():
                 if self._server_client is not None:
                     return self._server_client.scan_output_request(request)
-                self._apply_request_context(request)
+                ctx = self._request_context(request, isolated=isolated)
                 body: str | TaintedText = request.text
-                return self._output_pipeline.run(body, context=self._context)
+                result = self._output_pipeline.run(body, context=ctx)
+                policy = ctx.scan_policy or self._config.policy
+                return self._apply_privacy_filter(request.text, result, policy=policy)
         except Exception as exc:
             _log.error("guard.scan_output_request failed: %s", exc)
             return _fail_closed(exc)
@@ -261,7 +379,12 @@ class Guard:
             _log.error("guard.check_tool_call failed: %s", exc)
             return _fail_closed(exc)
 
-    def scan_request(self, request: ScanRequest) -> ScanResult:
+    def scan_request(
+        self,
+        request: ScanRequest,
+        *,
+        isolated: bool = False,
+    ) -> ScanResult:
         """Scan from a ScanRequest object."""
         violation = self._limits.check_input_length(request.text)
         if violation is not None:
@@ -270,12 +393,8 @@ class Guard:
             with correlation_scope():
                 if self._server_client is not None:
                     return self._server_client.scan_request(request)
-                self._apply_request_context(request)
-                return self._input_pipeline.run(
-                    request.text,
-                    source=request.source,
-                    context=self._context,
-                )
+                ctx = self._request_context(request, isolated=isolated)
+                return self._run_input_with_cache(request, ctx)
         except Exception as exc:
             _log.error("guard.scan_request failed: %s", exc)
             return _fail_closed(exc)

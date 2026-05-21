@@ -234,7 +234,7 @@ Skip PG when regex match has `score >= scanner.base_score` (high confidence).
 - `agent_id: str | None`
 - `turn_id: int | None`
 - `document_id: str | None`
-- `scan_cache: ScanCache | None` (safe prefix + chunk LRU)
+- `scan_cache: ScanCache | None` (safe prefix + chunk LRU) — **implemented** in `core/cache.py`
 
 ### Deferred
 

@@ -9,7 +9,7 @@ from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel
 from unplug.safeguards.base import RegexScanner
 
-_PATTERNS: list[tuple[str, re.Pattern]] = [
+LEAKAGE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "api_key_generic",
         re.compile(
@@ -36,7 +36,7 @@ _DEFAULT_CONFIG = ScannerConfig(base_score=0.80)
 
 class LeakageScanner(RegexScanner):
     name = "leakage"
-    _patterns = _PATTERNS
+    _patterns = LEAKAGE_PATTERNS
 
     def __init__(
         self,

@@ -12,6 +12,7 @@ from unplug.core.taint import TaintedText
 
 if TYPE_CHECKING:
     from unplug.config.policy import ScanPolicy
+    from unplug.core.cache import ScanCache
     from unplug.core.secrets import SecretsRegistry
 
 
@@ -37,6 +38,7 @@ class ExecutionContext:
         user_intent: TaintedText | None = None,
         secrets_registry: SecretsRegistry | None = None,
         scan_policy: ScanPolicy | None = None,
+        scan_cache: ScanCache | None = None,
     ) -> None:
         self.session_id = session_id or str(uuid.uuid4())
         self.agent_id = agent_id
@@ -48,6 +50,7 @@ class ExecutionContext:
         self.risk_trajectory: list[float] = []
         self.secrets_registry = secrets_registry
         self.scan_policy = scan_policy
+        self.scan_cache = scan_cache
 
     def add_message(self, msg: TaintedText) -> None:
         self.conversation.append(msg)

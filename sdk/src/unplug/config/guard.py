@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from unplug.config.cache import CacheConfig
 from unplug.config.limits import LimitConfig
 from unplug.config.messages import MessageConfig
 from unplug.config.policy import ScanPolicy
@@ -58,6 +59,8 @@ class GuardConfig(BaseModel):
         default_factory=ScanPolicy,
         description="Default scan policy; per-request overrides via ScanRequest",
     )
+    cache: CacheConfig = Field(default_factory=CacheConfig)
+    privacy_filter_enabled: bool = False
     scanner_configs: dict[str, ScannerConfig] = Field(default_factory=dict)
     limits: LimitConfig = Field(default_factory=LimitConfig)
     messages: MessageConfig = Field(default_factory=MessageConfig)

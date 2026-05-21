@@ -7,6 +7,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from unplug.config.cache import CacheConfig
 from unplug.config.guard import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
 from unplug.config.policy import ScanPolicy
 from unplug.config.limits import LimitConfig
@@ -122,6 +123,12 @@ def build_config(data: dict[str, Any]) -> GuardConfig:
         kwargs["server_api_key"] = guard_data["server_api_key"]
     if "policy" in guard_data:
         kwargs["policy"] = _build_policy(guard_data["policy"])
+    if "cache" in guard_data:
+        kwargs["cache"] = CacheConfig(
+            **{k: v for k, v in guard_data["cache"].items() if k in CacheConfig.model_fields}
+        )
+    if "privacy_filter_enabled" in guard_data:
+        kwargs["privacy_filter_enabled"] = guard_data["privacy_filter_enabled"]
     if "fail_closed" in guard_data:
         kwargs["fail_closed"] = guard_data["fail_closed"]
 
