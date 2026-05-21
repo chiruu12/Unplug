@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from benchmarks.builtin_samples import ALL_SAMPLES, FINANCIAL_TOOL_SAMPLES
+from benchmarks.loader import Sample
 from unplug import Guard
 from unplug.api.types import ScanResult
 from unplug.safeguards.registry import SafeguardRegistry
-from benchmarks.builtin_samples import ALL_SAMPLES, FINANCIAL_TOOL_SAMPLES
-from benchmarks.loader import Sample
 
 
 def _run_sample(guard: Guard, sample: Sample) -> ScanResult:
