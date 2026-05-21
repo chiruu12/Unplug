@@ -34,7 +34,7 @@ INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "reveal_prompt",
         re.compile(
-            r"(?i)(reveal|show|display|print|output|repeat|tell\s+me)\s+(your\s+)?"
+            r"(?i)(reveal|show|display|print|output|repeat|tell\s+me)(?:\s+me)?\s+(your\s+)?"
             r"(system\s+)?(prompt|instructions?|rules?|guidelines?|configuration)",
         ),
     ),
@@ -86,6 +86,50 @@ INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         "embedded_system_tag",
         re.compile(
             r"(?i)(<\s*system\s*>|<<\s*SYS\s*>>|\[INST\].*ignore)",
+        ),
+    ),
+    (
+        "fake_chat_delimiter",
+        re.compile(
+            r"(?i)---\s*(END\s+USER|SYSTEM|ASSISTANT|HUMAN)\s*---",
+        ),
+    ),
+    (
+        "chat_role_prefix",
+        re.compile(
+            r"(?i)(?:^|\n)\s*(Human|Assistant|System)\s*:\s*\S",
+        ),
+    ),
+    (
+        "bracket_system_tag",
+        re.compile(
+            r"(?i)\[(?:SYSTEM(?:\s+PROMPT)?|INST(?:RUCTION)?)\]",
+        ),
+    ),
+    (
+        "prior_rules_override",
+        re.compile(
+            r"(?i)(disregard|ignore|forget|override)\s+(prior|previous)\s+rules?\b",
+        ),
+    ),
+    (
+        "unrestricted_policy",
+        re.compile(
+            r"(?i)(unrestricted\s+mode|no\s+content\s+policy|"
+            r"without\s+(any\s+)?content\s+(policy|filters|restrictions))",
+        ),
+    ),
+    (
+        "respond_as_unrestricted",
+        re.compile(
+            r"(?i)respond\s+as\s+if\s+you\s+(have|had)\s+no\s+"
+            r"(content\s+)?(policy|restrictions|filters)",
+        ),
+    ),
+    (
+        "enable_jailbreak_mode",
+        re.compile(
+            r"(?i)enable\s+(developer|jailbreak|sudo|unrestricted)\s+mode",
         ),
     ),
 ]

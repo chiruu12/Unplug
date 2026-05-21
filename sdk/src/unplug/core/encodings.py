@@ -9,8 +9,21 @@ from typing import Protocol
 from unplug.api.types import Finding
 from unplug.safeguards.injection.patterns import INJECTION_PATTERNS
 
-# Same heuristic as normalize._decode_base64
+# Same charset as normalize._decode_base64.
 BASE64_BLOB_PATTERN = re.compile(r"[A-Za-z0-9+/]{20,}={0,2}")
+_SECRET_CONTEXT_BEFORE = re.compile(
+    r"(?i)(?:"
+    r"(?:sk|pk|ghp|gho|ghu|ghs|ghr|AKIA|eyJ)[-_]?|"
+    r"(?:api[_-]?key|secret[_-]?key|access[_-]?token)\s*[:=]\s*['\"]?"
+    r")$",
+)
+
+
+def _is_probable_base64_blob(text: str, start: int, raw: str) -> bool:
+    """Skip blobs that are likely API tokens/secrets, not encoded payloads."""
+    _ = raw
+    prefix = text[max(0, start - 32) : start]
+    return _SECRET_CONTEXT_BEFORE.search(prefix) is None
 
 
 class EncodingBlob:
@@ -55,11 +68,13 @@ def iter_base64_blobs(text: str) -> list[EncodingBlob]:
     blobs: list[EncodingBlob] = []
     for match in BASE64_BLOB_PATTERN.finditer(text):
         raw = match.group(0)
+        if not _is_probable_base64_blob(text, match.start(), raw):
+            continue
         decoded: str | None = None
         try:
             decoded = base64.b64decode(raw, validate=True).decode("utf-8")
         except Exception:
-            pass
+            continue
         blobs.append(
             EncodingBlob(
                 start=match.start(),
@@ -81,18 +96,6 @@ def scan_encoding_blobs(
 
     for blob in iter_base64_blobs(text):
         if blob.decoded is None:
-            findings.append(
-                Finding(
-                    category="injection",
-                    subcategory="encoded_decode_failed",
-                    stage="encoding",
-                    span_start=blob.start,
-                    span_end=blob.end,
-                    score=0.75,
-                    evidence="Invalid or non-UTF-8 Base64 payload",
-                    replacement="[REDACTED]",
-                )
-            )
             continue
 
         malicious, score, subcategory = backend.is_malicious(blob.decoded)

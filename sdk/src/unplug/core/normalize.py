@@ -162,6 +162,16 @@ _ALL_STAGES = [
     "reversed",
 ]
 
+# Stages safe for digit-heavy content (PII, amounts) — excludes leet and base64.
+EVASION_ONLY_STAGES = [
+    "zero_width",
+    "fullwidth",
+    "enclosed",
+    "homoglyphs",
+    "spacing",
+    "delimiters",
+]
+
 
 class Normalizer:
     """12-stage text normalizer that preserves span mapping to original text."""

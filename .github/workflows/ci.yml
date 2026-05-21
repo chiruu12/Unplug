@@ -35,3 +35,15 @@ jobs:
 
       - name: Tests
         run: uv run pytest -q
+
+      - name: Security regression
+        run: |
+          uv run pytest \
+            tests/test_adversarial.py \
+            tests/test_false_positives.py \
+            tests/test_encodings.py \
+            tests/test_secrets.py \
+            tests/test_scan_policy.py \
+            tests/test_security_stress.py \
+            tests/test_sdk_coverage.py \
+            -q

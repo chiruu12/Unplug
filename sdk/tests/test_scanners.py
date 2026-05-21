@@ -124,6 +124,21 @@ class TestDestructiveScanner:
             findings = self.scanner.scan(text, self.ctx)
             assert len(findings) > 0
 
+    def test_detects_zero_width_sql(self):
+        text = _make_text("DR\u200bOP TABLE users")
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "sql_drop" for f in findings)
+
+    def test_detects_spaced_sql(self):
+        text = _make_text("D R O P TABLE users")
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "sql_drop" for f in findings)
+
+    def test_detects_zero_width_rm(self):
+        text = _make_text("rm\u200b -rf /")
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "shell_rm" for f in findings)
+
 
 class TestLeakageScanner:
     def setup_method(self):
@@ -154,6 +169,16 @@ class TestLeakageScanner:
         text = _make_text("ssn: 123-45-6789", trust=TrustLevel.EXTERNAL)
         findings = self.scanner.scan(text, self.ctx)
         assert any(f.subcategory == "ssn" for f in findings)
+
+    def test_detects_spaced_ssn(self):
+        text = _make_text("SSN 123 45 6789", trust=TrustLevel.RETRIEVED)
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory in ("ssn", "ssn_compact") for f in findings)
+
+    def test_detects_zero_width_email(self):
+        text = _make_text("contact test\u200b@example.com today", trust=TrustLevel.RETRIEVED)
+        findings = self.scanner.scan(text, self.ctx)
+        assert any(f.subcategory == "email_address" for f in findings)
 
     def test_scans_unknown(self):
         text = _make_text("phone: (555) 123-4567", trust=TrustLevel.UNKNOWN)
