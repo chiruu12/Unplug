@@ -90,8 +90,8 @@ Replace `HeuristicEncodingClassifier` when PG is wired.
 
 | Phase | Work | Repo |
 |-------|------|------|
-| **C1** | `ScanCache` protocol + `PostgresScanCache` + Alembic migration | unplug-server |
-| **C2** | Wire lifespan + `UNPLUG_CACHE_BACKEND` | unplug-server |
+| **C1** | `PostgresScanCache` + Alembic `001_scan_cache` | unplug-server — **PR open** |
+| **C2** | `UNPLUG_CACHE_BACKEND` + docker-compose Postgres | unplug-server — **PR open** |
 | **M1** | Prompt Guard service + encoding hook | unplug-server |
 | **M2** | BIOES inference service | unplug-server + unplug_exp train |
 | **M3** | unplug-safeguard bundle → enable PF + export spans | server; SDK stays regex-only until BYOM phase |
