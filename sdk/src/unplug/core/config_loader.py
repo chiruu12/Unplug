@@ -12,6 +12,8 @@ from unplug.config.loader import (
 )
 
 __all__ = [
+    "_coerce",
+    "_merge",
     "build_config",
     "load",
     "load_from_env",

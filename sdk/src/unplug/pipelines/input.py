@@ -7,9 +7,9 @@ from typing import Any
 
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
+from unplug.core.encodings import EncodingClassifier, scan_encoding_blobs
 from unplug.core.judge import JudgeContext, JudgeProvider
 from unplug.core.logging import get_logger
-from unplug.core.encodings import EncodingClassifier, scan_encoding_blobs
 from unplug.core.normalize import Normalizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel, trust_level_from_source
