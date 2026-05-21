@@ -45,12 +45,6 @@ INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
     (
-        "base64_payload",
-        re.compile(
-            r"[A-Za-z0-9+/]{20,}={0,2}",
-        ),
-    ),
-    (
         "hex_encoding",
         re.compile(
             r"(?i)(?:\\x[0-9a-f]{2}){4,}",

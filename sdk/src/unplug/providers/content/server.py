@@ -38,3 +38,9 @@ class ServerContentProvider:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def __aenter__(self) -> ServerContentProvider:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.aclose()
