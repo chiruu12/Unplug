@@ -6,7 +6,7 @@ import re
 
 from unplug.core.config import ScannerConfig
 from unplug.core.stats import MetricsCollector
-from unplug.scanners.base import RegexScanner
+from unplug.safeguards.base import RegexScanner
 
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     (

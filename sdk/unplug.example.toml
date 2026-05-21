@@ -11,6 +11,10 @@ max_input_chars = 50000
 max_tool_calls_per_session = 100
 blocked_tools = []
 
+[messages]
+blocked_template = "Content was not safe. Threat: {category} (risk {risk_score:.2f})."
+review_template = "Review required: {category} (risk {risk_score:.2f})."
+
 [pipeline.thresholds]
 block = 0.8
 redact = 0.5

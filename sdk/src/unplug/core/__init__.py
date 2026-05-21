@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unplug.core.config import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
+from unplug.config.guard import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
 from unplug.core.context import ExecutionContext, ToolCall
 from unplug.core.models import ModelProvider, ModelRegistry, ModelSpec
 from unplug.core.secrets import SecretsRegistry, SecretsSanitizer

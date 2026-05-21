@@ -9,7 +9,7 @@ from unplug.core.context import ExecutionContext
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
 from unplug.models import Finding
-from unplug.scanners.base import BaseScanner
+from unplug.safeguards.base import BaseScanner
 
 _DEFAULT_CONFIG = ScannerConfig(base_score=0.99)
 

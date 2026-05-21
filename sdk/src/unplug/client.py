@@ -2,35 +2,65 @@
 
 from __future__ import annotations
 
+import os
 from typing import Self
 
 import httpx
 
-from unplug.models import BatchScanRequest, ScanRequest, ScanResult
+from unplug.api.enums import Source
+from unplug.api.types import BatchScanRequest, ScanRequest, ScanResult
 
 
 class UnplugClient:
     """Client for the Unplug server API."""
 
-    def __init__(self, base_url: str = "http://localhost:8000", api_key: str | None = None) -> None:
-        headers = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        self._client = httpx.Client(base_url=base_url, headers=headers, timeout=30.0)
+    def __init__(
+        self,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+    ) -> None:
+        resolved_url = base_url or os.environ.get("UNPLUG_SERVER_URL", "http://localhost:8000")
+        resolved_key = api_key or os.environ.get("UNPLUG_API_KEY")
+        headers: dict[str, str] = {}
+        if resolved_key:
+            headers["Authorization"] = f"Bearer {resolved_key}"
+        self._client = httpx.Client(
+            base_url=resolved_url.rstrip("/"),
+            headers=headers,
+            timeout=timeout,
+        )
 
-    def scan(self, text: str, source: str = "user", **kwargs) -> ScanResult:
-        request = ScanRequest(text=text, source=source, **kwargs)
-        response = self._client.post("/v1/scan", json=request.model_dump())
+    def scan(
+        self,
+        text: str,
+        source: Source | str = Source.USER,
+        *,
+        scanners: list[str] | None = None,
+        redact: bool = True,
+    ) -> ScanResult:
+        request = ScanRequest(text=text, source=source, scanners=scanners, redact=redact)
+        return self.scan_request(request)
+
+    def scan_request(self, request: ScanRequest) -> ScanResult:
+        response = self._client.post(
+            "/v1/scan",
+            json=request.model_dump(mode="json"),
+        )
         response.raise_for_status()
         return ScanResult.model_validate(response.json())
 
     def batch_scan(self, items: list[ScanRequest]) -> list[ScanResult]:
         request = BatchScanRequest(items=items)
-        response = self._client.post("/v1/batch", json=request.model_dump())
+        response = self._client.post(
+            "/v1/batch",
+            json=request.model_dump(mode="json"),
+        )
         response.raise_for_status()
         return [ScanResult.model_validate(r) for r in response.json()["results"]]
 
-    def health(self) -> dict:
+    def health(self) -> dict[str, object]:
         response = self._client.get("/v1/health")
         response.raise_for_status()
         return response.json()

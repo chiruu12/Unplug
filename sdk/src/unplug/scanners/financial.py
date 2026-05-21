@@ -10,7 +10,7 @@ from unplug.core.context import ExecutionContext
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText, TrustLevel
 from unplug.models import Finding
-from unplug.scanners.base import BaseScanner
+from unplug.safeguards.base import BaseScanner
 
 _CRYPTO_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("btc_address_legacy", re.compile(r"\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b")),

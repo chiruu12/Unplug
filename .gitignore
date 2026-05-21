@@ -148,7 +148,10 @@ activemq-data/
 *.sage.py
 
 # Environments
+# Secrets — never commit
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
