@@ -9,9 +9,9 @@ from typing import Any
 
 from unplug.config.cache import CacheConfig
 from unplug.config.guard import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
-from unplug.config.policy import ScanPolicy
 from unplug.config.limits import LimitConfig
 from unplug.config.messages import MessageConfig
+from unplug.config.policy import ScanPolicy
 
 
 def load_from_file(path: str | Path) -> dict[str, Any]:
@@ -76,9 +76,7 @@ def _build_thresholds(data: dict[str, Any]) -> ThresholdConfig:
 
 
 def _build_policy(data: dict[str, Any]) -> ScanPolicy:
-    return ScanPolicy(
-        **{k: v for k, v in data.items() if k in ScanPolicy.model_fields}
-    )
+    return ScanPolicy(**{k: v for k, v in data.items() if k in ScanPolicy.model_fields})
 
 
 def _build_pipeline(data: dict[str, Any]) -> PipelineConfig:

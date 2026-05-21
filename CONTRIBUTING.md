@@ -18,7 +18,7 @@ GitHub Actions runs on every PR to `main`:
 ```bash
 cd sdk
 uv sync --all-extras --dev
-uv run ruff check . && uv run ruff format .
+uv run ruff check . && uv run ruff format .   # auto-fix locally; CI uses format --check
 uv run pytest -q
 ```
 

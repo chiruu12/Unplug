@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from unplug.api.enums import Action, Source
-from unplug.config.policy import ScanPolicy
 from unplug.api.types import (
     BatchScanRequest,
     Finding,
@@ -11,6 +10,7 @@ from unplug.api.types import (
     ScanRequest,
     ScanResult,
 )
+from unplug.config.policy import ScanPolicy
 
 __all__ = [
     "Action",

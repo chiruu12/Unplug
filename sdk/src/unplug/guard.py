@@ -7,24 +7,24 @@ from typing import Any
 
 from unplug.api.enums import Action, Source
 from unplug.api.types import Finding, ScanRequest, ScanResult
+from unplug.client import UnplugClient
 from unplug.config.guard import GuardConfig
 from unplug.config.policy import ScanPolicy
-from unplug.core.cache import ScanCache, SafePrefixState, merge_suffix_result
-from unplug.core.policy import policy_from_request
+from unplug.core.cache import SafePrefixState, ScanCache, merge_suffix_result
 from unplug.core.context import ExecutionContext, ToolCall
-from unplug.core.privacy import NullPrivacyFilter, PrivacyFilterService
-from unplug.core.versions import MODEL_VERSION_LOCAL, NORMALIZER_VERSION
 from unplug.core.judge import JudgeProvider
 from unplug.core.limits import LimitConfig, LimitViolation
 from unplug.core.logging import correlation_scope, get_logger
 from unplug.core.normalize import Normalizer
+from unplug.core.policy import policy_from_request
+from unplug.core.privacy import NullPrivacyFilter, PrivacyFilterService
 from unplug.core.secrets import SecretsRegistry, SecretsSanitizer
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import TaintedText
+from unplug.core.versions import MODEL_VERSION_LOCAL, NORMALIZER_VERSION
 from unplug.pipelines.input import InputPipeline
 from unplug.pipelines.output import OutputPipeline
 from unplug.pipelines.toolcall import ToolCallPipeline
-from unplug.client import UnplugClient
 from unplug.safeguards import ScannerRegistry
 
 _log = get_logger("guard")
@@ -109,9 +109,7 @@ class Guard:
         self._metrics = MetricsCollector()
         self._secrets_registry = secrets_registry or SecretsRegistry()
         scan_cache = (
-            ScanCache(max_chunk_entries=cfg.cache.max_chunk_entries)
-            if cfg.cache.enabled
-            else None
+            ScanCache(max_chunk_entries=cfg.cache.max_chunk_entries) if cfg.cache.enabled else None
         )
         self._context = ExecutionContext(
             secrets_registry=self._secrets_registry,

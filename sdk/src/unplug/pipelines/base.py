@@ -9,8 +9,8 @@ from typing import Any
 from unplug.config.policy import ScanPolicy
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
-from unplug.core.policy import decide_action
 from unplug.core.logging import get_logger
+from unplug.core.policy import decide_action
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import Tagger, TaintedText, TrustLevel
 from unplug.models import Action, Finding, ScanResult
