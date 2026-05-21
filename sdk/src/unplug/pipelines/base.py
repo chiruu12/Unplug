@@ -6,8 +6,10 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
+from unplug.config.policy import ScanPolicy
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
+from unplug.core.policy import decide_action
 from unplug.core.logging import get_logger
 from unplug.core.stats import MetricsCollector
 from unplug.core.taint import Tagger, TaintedText, TrustLevel
@@ -63,9 +65,11 @@ class BasePipeline(ABC):
         latency_ms = (time.perf_counter() - start) * 1000
 
         risk_score = max((f.score for f in findings), default=0.0)
-        action = self._decide(risk_score, findings)
+        text = self._extract_text(input_data) or ""
+        policy = self._resolve_policy(ctx)
+        action = self._decide(risk_score, findings, text_len=len(text), policy=policy)
         stages = list(dict.fromkeys(f.category for f in findings))
-        redacted = self._redact(input_data, findings) if findings else None
+        redacted = self._redact(input_data, findings, policy=policy) if findings else None
 
         result = ScanResult(
             safe=action == Action.ALLOW,
@@ -99,22 +103,42 @@ class BasePipeline(ABC):
         """Core pipeline logic. Return findings."""
         ...
 
-    def _decide(self, risk_score: float, findings: list[Finding]) -> Action:
-        t = self._config.thresholds
-        if risk_score >= t.block:
-            return Action.BLOCK
-        if risk_score >= t.redact:
-            return Action.REDACT
-        if risk_score >= t.review:
-            return Action.REVIEW
-        return Action.ALLOW
+    def _resolve_policy(self, context: ExecutionContext) -> ScanPolicy:
+        if context.scan_policy is not None:
+            return context.scan_policy
+        return self._config.policy
 
-    def _redact(self, input_data: Any, findings: list[Finding]) -> str | None:
+    def _decide(
+        self,
+        risk_score: float,
+        findings: list[Finding],
+        *,
+        text_len: int,
+        policy: ScanPolicy,
+    ) -> Action:
+        return decide_action(
+            findings,
+            text_len=text_len,
+            policy=policy,
+            risk_score=risk_score,
+        )
+
+    def _redact(
+        self,
+        input_data: Any,
+        findings: list[Finding],
+        *,
+        policy: ScanPolicy,
+    ) -> str | None:
         text = self._extract_text(input_data)
         if text is None:
             return None
         spans = sorted(
-            [(f.span_start, f.span_end, f.replacement) for f in findings if f.score >= 0.5],
+            [
+                (f.span_start, f.span_end, f.replacement)
+                for f in findings
+                if f.score >= policy.redact_threshold
+            ],
             key=lambda s: s[0],
             reverse=True,
         )

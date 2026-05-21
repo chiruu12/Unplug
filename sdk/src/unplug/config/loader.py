@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from unplug.config.guard import GuardConfig, PipelineConfig, ScannerConfig, ThresholdConfig
+from unplug.config.policy import ScanPolicy
 from unplug.config.limits import LimitConfig
 from unplug.config.messages import MessageConfig
 
@@ -73,10 +74,18 @@ def _build_thresholds(data: dict[str, Any]) -> ThresholdConfig:
     )
 
 
+def _build_policy(data: dict[str, Any]) -> ScanPolicy:
+    return ScanPolicy(
+        **{k: v for k, v in data.items() if k in ScanPolicy.model_fields}
+    )
+
+
 def _build_pipeline(data: dict[str, Any]) -> PipelineConfig:
     kwargs: dict[str, Any] = {}
     if "thresholds" in data:
         kwargs["thresholds"] = _build_thresholds(data["thresholds"])
+    if "policy" in data:
+        kwargs["policy"] = _build_policy(data["policy"])
     if "fail_closed" in data:
         kwargs["fail_closed"] = data["fail_closed"]
     return PipelineConfig(**kwargs)
@@ -109,6 +118,10 @@ def build_config(data: dict[str, Any]) -> GuardConfig:
         kwargs["mode"] = guard_data["mode"]
     if "server_url" in guard_data:
         kwargs["server_url"] = guard_data["server_url"]
+    if "server_api_key" in guard_data:
+        kwargs["server_api_key"] = guard_data["server_api_key"]
+    if "policy" in guard_data:
+        kwargs["policy"] = _build_policy(guard_data["policy"])
     if "fail_closed" in guard_data:
         kwargs["fail_closed"] = guard_data["fail_closed"]
 

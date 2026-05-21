@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from unplug.config.limits import LimitConfig
 from unplug.config.messages import MessageConfig
+from unplug.config.policy import ScanPolicy
 
 
 class ThresholdConfig(BaseModel):
@@ -38,6 +39,7 @@ class PipelineConfig(BaseModel):
     model_config = {"frozen": True}
 
     thresholds: ThresholdConfig = Field(default_factory=ThresholdConfig)
+    policy: ScanPolicy = Field(default_factory=ScanPolicy)
     fail_closed: bool = True
 
 
@@ -52,6 +54,10 @@ class GuardConfig(BaseModel):
     server_api_key: str | None = None
     fail_closed: bool = True
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
+    policy: ScanPolicy = Field(
+        default_factory=ScanPolicy,
+        description="Default scan policy; per-request overrides via ScanRequest",
+    )
     scanner_configs: dict[str, ScannerConfig] = Field(default_factory=dict)
     limits: LimitConfig = Field(default_factory=LimitConfig)
     messages: MessageConfig = Field(default_factory=MessageConfig)

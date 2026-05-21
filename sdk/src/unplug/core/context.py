@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from unplug.core.taint import TaintedText
 
 if TYPE_CHECKING:
+    from unplug.config.policy import ScanPolicy
     from unplug.core.secrets import SecretsRegistry
 
 
@@ -30,15 +31,23 @@ class ExecutionContext:
         self,
         *,
         session_id: str | None = None,
+        agent_id: str | None = None,
+        turn_id: int | None = None,
+        document_id: str | None = None,
         user_intent: TaintedText | None = None,
         secrets_registry: SecretsRegistry | None = None,
+        scan_policy: ScanPolicy | None = None,
     ) -> None:
         self.session_id = session_id or str(uuid.uuid4())
+        self.agent_id = agent_id
+        self.turn_id = turn_id
+        self.document_id = document_id
         self.user_intent = user_intent
         self.conversation: list[TaintedText] = []
         self.tool_calls: list[ToolCall] = []
         self.risk_trajectory: list[float] = []
         self.secrets_registry = secrets_registry
+        self.scan_policy = scan_policy
 
     def add_message(self, msg: TaintedText) -> None:
         self.conversation.append(msg)

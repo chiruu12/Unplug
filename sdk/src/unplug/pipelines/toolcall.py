@@ -52,7 +52,15 @@ class ToolCallPipeline(BasePipeline):
 
         return findings
 
-    def _decide(self, risk_score: float, findings: list[Finding]) -> Action:
+    def _decide(
+        self,
+        risk_score: float,
+        findings: list[Finding],
+        *,
+        text_len: int = 0,
+        policy: object | None = None,
+    ) -> Action:
+        _ = text_len, policy
         t = self._config.thresholds
         if risk_score >= t.block:
             return Action.BLOCK
@@ -60,7 +68,14 @@ class ToolCallPipeline(BasePipeline):
             return Action.REVIEW
         return Action.ALLOW
 
-    def _redact(self, input_data: Any, findings: list[Finding]) -> str | None:
+    def _redact(
+        self,
+        input_data: Any,
+        findings: list[Finding],
+        *,
+        policy: object | None = None,
+    ) -> str | None:
+        _ = input_data, findings, policy
         return None
 
     def _check_taint(self, tool_call: ToolCall, existing: list[Finding]) -> list[Finding]:

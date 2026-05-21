@@ -33,6 +33,19 @@ class ScanRequest(BaseModel):
     source: Source = Field(default=Source.USER)
     scanners: list[str] | None = Field(default=None)
     redact: bool = Field(default=True)
+    session_id: str | None = Field(default=None, description="Client session for logging")
+    agent_id: str | None = Field(default=None, description="Agent identifier")
+    turn_id: int | None = Field(default=None, description="Turn index within session")
+    document_id: str | None = Field(default=None, description="RAG chunk or document id")
+    block_coverage_ratio: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Override document BLOCK coverage threshold",
+    )
+    redact_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    review_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    block_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class BatchScanRequest(BaseModel):

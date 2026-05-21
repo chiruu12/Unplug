@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from unplug.config.policy import ScanPolicy
 from unplug.core.config import PipelineConfig
 from unplug.core.context import ExecutionContext
 from unplug.core.secrets import SecretsSanitizer
@@ -47,17 +48,36 @@ class OutputPipeline(BasePipeline):
             findings.extend(self._leakage.scan(input_data, context))
         return findings
 
-    def _decide(self, risk_score: float, findings: list[Finding]) -> Action:
+    def _decide(
+        self,
+        risk_score: float,
+        findings: list[Finding],
+        *,
+        text_len: int = 0,
+        policy: ScanPolicy | None = None,
+    ) -> Action:
+        _ = text_len, policy
         if risk_score >= self._config.thresholds.block:
             return Action.BLOCK
         if findings:
             return Action.REDACT
         return Action.ALLOW
 
-    def _redact(self, input_data: Any, findings: list[Finding]) -> str | None:
+    def _redact(
+        self,
+        input_data: Any,
+        findings: list[Finding],
+        *,
+        policy: ScanPolicy | None = None,
+    ) -> str | None:
+        _ = policy
         text = self._extract_text(input_data)
         if text is None or not findings:
             return None
         if self._sanitizer:
             return self._sanitizer.sanitize(text).clean_text
-        return super()._redact(input_data, findings)
+        return super()._redact(
+            input_data,
+            findings,
+            policy=policy or self._config.policy,
+        )

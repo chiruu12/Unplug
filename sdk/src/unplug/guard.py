@@ -8,6 +8,8 @@ from typing import Any
 from unplug.api.enums import Action, Source
 from unplug.api.types import Finding, ScanRequest, ScanResult
 from unplug.config.guard import GuardConfig
+from unplug.config.policy import ScanPolicy
+from unplug.core.policy import policy_from_request
 from unplug.core.context import ExecutionContext, ToolCall
 from unplug.core.judge import JudgeProvider
 from unplug.core.limits import LimitConfig, LimitViolation
@@ -165,17 +167,37 @@ class Guard:
         """Scan text and return findings with optional redaction."""
         if isinstance(source, str):
             source = Source(source)
-        violation = self._limits.check_input_length(text)
-        if violation is not None:
-            return _limit_result(violation, len(text))
-        try:
-            with correlation_scope():
-                if self._server_client is not None:
-                    return self._server_client.scan(text, source=source)
-                return self._input_pipeline.run(text, source=source, context=self._context)
-        except Exception as exc:
-            _log.error("guard.scan failed: %s", exc)
-            return _fail_closed(exc)
+        return self.scan_request(self._build_scan_request(text, source))
+
+    def _build_scan_request(self, text: str, source: Source) -> ScanRequest:
+        ctx = self._context
+        policy = self._config.policy
+        return ScanRequest(
+            text=text,
+            source=source,
+            session_id=ctx.session_id,
+            agent_id=ctx.agent_id,
+            turn_id=ctx.turn_id,
+            document_id=ctx.document_id,
+            block_coverage_ratio=policy.block_coverage_ratio,
+            redact_threshold=policy.redact_threshold,
+            review_threshold=policy.review_threshold,
+            block_threshold=policy.block_threshold,
+        )
+
+    def _apply_request_context(self, request: ScanRequest) -> ScanPolicy:
+        ctx = self._context
+        if request.session_id:
+            ctx.session_id = request.session_id
+        if request.agent_id is not None:
+            ctx.agent_id = request.agent_id
+        if request.turn_id is not None:
+            ctx.turn_id = request.turn_id
+        if request.document_id is not None:
+            ctx.document_id = request.document_id
+        policy = policy_from_request(request, self._config.policy)
+        ctx.scan_policy = policy
+        return policy
 
     def scan_output(self, text: str | TaintedText) -> ScanResult:
         """Scan agent output for secrets and data leakage."""
@@ -227,17 +249,22 @@ class Guard:
 
     def scan_request(self, request: ScanRequest) -> ScanResult:
         """Scan from a ScanRequest object."""
-        if self._server_client is not None:
-            violation = self._limits.check_input_length(request.text)
-            if violation is not None:
-                return _limit_result(violation, len(request.text))
-            try:
-                with correlation_scope():
+        violation = self._limits.check_input_length(request.text)
+        if violation is not None:
+            return _limit_result(violation, len(request.text))
+        try:
+            with correlation_scope():
+                if self._server_client is not None:
                     return self._server_client.scan_request(request)
-            except Exception as exc:
-                _log.error("guard.scan_request failed: %s", exc)
-                return _fail_closed(exc)
-        return self.scan(request.text, request.source)
+                self._apply_request_context(request)
+                return self._input_pipeline.run(
+                    request.text,
+                    source=request.source,
+                    context=self._context,
+                )
+        except Exception as exc:
+            _log.error("guard.scan_request failed: %s", exc)
+            return _fail_closed(exc)
 
     @property
     def is_server_mode(self) -> bool:
