@@ -30,5 +30,8 @@ request = ScanRequest(
 result = guard.scan_request(request)
 print(result.safe, result.findings)
 
+output = guard.scan_output("Here is the API key: sk-live-abcdefghijklmnop")
+print("output:", output.action, output.redacted_text is not None)
+
 if os.environ.get("UNPLUG_SERVER_URL"):
     print("server:", os.environ["UNPLUG_SERVER_URL"])

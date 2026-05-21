@@ -169,7 +169,11 @@ class Guard:
             source = Source(source)
         return self.scan_request(self._build_scan_request(text, source))
 
-    def _build_scan_request(self, text: str, source: Source) -> ScanRequest:
+    def _build_scan_request(
+        self,
+        text: str,
+        source: Source = Source.USER,
+    ) -> ScanRequest:
         ctx = self._context
         policy = self._config.policy
         return ScanRequest(
@@ -202,14 +206,24 @@ class Guard:
     def scan_output(self, text: str | TaintedText) -> ScanResult:
         """Scan agent output for secrets and data leakage."""
         raw = text.text if isinstance(text, TaintedText) else text
-        violation = self._limits.check_input_length(raw)
+        return self.scan_output_request(
+            self._build_scan_request(raw, source=Source.TOOL_OUTPUT),
+        )
+
+    def scan_output_request(self, request: ScanRequest) -> ScanResult:
+        """Scan output from a ScanRequest (hosted server or local pipeline)."""
+        violation = self._limits.check_input_length(request.text)
         if violation is not None:
-            return _limit_result(violation, len(raw))
+            return _limit_result(violation, len(request.text))
         try:
             with correlation_scope():
-                return self._output_pipeline.run(text, context=self._context)
+                if self._server_client is not None:
+                    return self._server_client.scan_output_request(request)
+                self._apply_request_context(request)
+                body: str | TaintedText = request.text
+                return self._output_pipeline.run(body, context=self._context)
         except Exception as exc:
-            _log.error("guard.scan_output failed: %s", exc)
+            _log.error("guard.scan_output_request failed: %s", exc)
             return _fail_closed(exc)
 
     def check_tool_call(

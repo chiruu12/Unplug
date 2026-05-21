@@ -51,6 +51,29 @@ class UnplugClient:
         response.raise_for_status()
         return ScanResult.model_validate(response.json())
 
+    def scan_output(
+        self,
+        text: str,
+        *,
+        scanners: list[str] | None = None,
+        redact: bool = True,
+    ) -> ScanResult:
+        request = ScanRequest(
+            text=text,
+            source=Source.TOOL_OUTPUT,
+            scanners=scanners,
+            redact=redact,
+        )
+        return self.scan_output_request(request)
+
+    def scan_output_request(self, request: ScanRequest) -> ScanResult:
+        response = self._client.post(
+            "/v1/scan/output",
+            json=request.model_dump(mode="json"),
+        )
+        response.raise_for_status()
+        return ScanResult.model_validate(response.json())
+
     def batch_scan(self, items: list[ScanRequest]) -> list[ScanResult]:
         request = BatchScanRequest(items=items)
         response = self._client.post(
